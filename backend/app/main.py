@@ -32,6 +32,8 @@ from app.routes.matching import matching_router
 
 from app.routes.patient import patient_router
 
+from app.routes.chat import chat_router
+
 # Optional: Setup logs, database, vector DB, etc.
 # from app.database.db import init_db
 # from app.services.embedding_service import load_vector_index
@@ -65,6 +67,7 @@ app.include_router(ingestion_router, prefix="/api/ingestion", tags=["Ingestion"]
 app.include_router(patient_router, prefix="/api", tags=["Patients"])
 
 app.include_router(matching_router, prefix="/api/matching", tags=["Matching"])
+app.include_router(chat_router, prefix="/api", tags=["Chat"])
 # Startup and shutdown events
 # @app.on_event("startup")
 # async def startup_event():

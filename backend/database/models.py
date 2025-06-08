@@ -1,6 +1,11 @@
-from sqlalchemy import Column, Integer, String, Date, Text, JSON
+from sqlalchemy import Column, Integer, String, Date, Text, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, DateTime, JSON, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import declarative_base
+import uuid
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -77,3 +82,12 @@ class UnmatchedPatient(Base):
     ssn = Column(String, nullable=True)
     insurance_number = Column(String, nullable=True)
     medical_conditions = Column(Text, nullable=True)
+
+
+class PatientContext(Base):
+    __tablename__ = "patient_contexts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    context_json = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

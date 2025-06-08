@@ -123,3 +123,12 @@ class PatientResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class PatientContextCreate(BaseModel):
+    patient_id: int
+    context_json: dict
+
+class ChatRequest(BaseModel):
+    patient_id: str
+    question: str
