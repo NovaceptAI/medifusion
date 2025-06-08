@@ -28,14 +28,21 @@ interface AIResults {
   review: MatchedResult[];
 }
 
+interface OCRResult {
+  filename: string;
+  extracted_text: string;
+}
+
 interface PatientStore {
   patients: Patient[];
   aiResults: AIResults;
   nerResults: unknown[];
+  ocrResults: OCRResult[];
   files: File[];
   setPatients: (patients: Patient[]) => void;
   setAIResults: (matched: MatchedResult[], review: MatchedResult[]) => void;
   setNERResults: (nerResults: unknown[]) => void;
+  setOCRResults: (results: OCRResult[]) => void;
   setFiles: (files: File[]) => void;
   updateAIResults: (updatedPatient: MatchedResult) => void;
 }
@@ -49,6 +56,7 @@ export const usePatientStore = create<PatientStore>()(
         review: [],
       },
       nerResults: [],
+      ocrResults: [],
       files: [],
       setPatients: (patients) => set({ patients }),
       setAIResults: (matched, review) =>
@@ -59,6 +67,7 @@ export const usePatientStore = create<PatientStore>()(
           },
         }),
       setNERResults: (nerResults) => set({ nerResults }),
+      setOCRResults: (results) => set({ ocrResults: results }),
       setFiles: (files) => set({ files }),
       updateAIResults: (updatedPatient) =>
         set((state) => {
@@ -93,6 +102,7 @@ export const usePatientStore = create<PatientStore>()(
         patients: state.patients,
         aiResults: state.aiResults,
         nerResults: state.nerResults,
+        ocrResults: state.ocrResults,
         files: state.files,
       }), // only persist these fields
     }

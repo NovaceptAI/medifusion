@@ -86,13 +86,27 @@ const Home = () => {
     ocr: "pending",
     ner: "pending",
   });
+  const [nerReady, setNerReady] = useState(false);
+  const [currentView, setCurrentView] = useState<"ocr-output" | "patient-list">(
+    "ocr-output"
+  );
   const {
     setPatients: setStorePatients,
     setNERResults,
     patients: storePatients,
     setFiles: setStoreFiles,
     files: storeFiles,
-  } = usePatientStore();
+    setOCRResults,
+  } = usePatientStore() as unknown as {
+    setPatients: (patients: Patient[]) => void;
+    setNERResults: (results: object[]) => void;
+    patients: Patient[];
+    setFiles: (files: File[]) => void;
+    files: File[];
+    setOCRResults: (
+      results: { filename: string; extracted_text: string }[]
+    ) => void;
+  };
 
   // Initialize patients, files and state from store if available
   useEffect(() => {
@@ -153,12 +167,12 @@ const Home = () => {
 
   const handleSimulateUpload = async () => {
     setError(undefined);
-
     setCheckpointState((prev) => ({
       ...prev,
       ocr: "loading",
     }));
-
+    setNerReady(false);
+    setCurrentView("ocr-output");
     try {
       // Check file sizes before uploading
       const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
@@ -215,6 +229,9 @@ const Home = () => {
       if (!uploadData?.results) {
         throw new Error("Invalid response format from upload API");
       }
+
+      setOCRResults(uploadData.results);
+      setCurrentView("ocr-output");
 
       // Mark OCR as completed and start NER
       setCheckpointState((prev) => ({
@@ -352,6 +369,8 @@ const Home = () => {
       setStorePatients(transformedPatients);
       setStoreFiles(files);
       setNERResults(processedResults);
+      setNerReady(true);
+      setCurrentView("patient-list");
 
       // Update checkpoint state
       setCheckpointState({
@@ -372,6 +391,7 @@ const Home = () => {
         ocr: "pending",
         ner: "pending",
       });
+      setNerReady(false);
     }
   };
 
@@ -474,7 +494,13 @@ const Home = () => {
             className="bg-white rounded-xl shadow-lg p-6 border border-indigo-100 overflow-hidden"
           >
             <div className="h-[65vh] overflow-y-auto">
-              <PatientList patients={patients} error={error} />
+              <PatientList
+                patients={patients}
+                error={error}
+                nerReady={nerReady}
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+              />
             </div>
           </motion.div>
         </div>
