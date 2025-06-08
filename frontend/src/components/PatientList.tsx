@@ -333,6 +333,9 @@ const PatientList = ({
       <div className="space-y-4">
         {ocrResults.map((result) => {
           const isExpanded = expandedPatient === result.filename;
+          const hasCritical = result.extracted_text
+            .toLowerCase()
+            .includes("critical");
           let sampleLines: string[] = [];
           if (typeof result.extracted_text === "string") {
             const lines = result.extracted_text.split("\n").filter(Boolean);
@@ -362,20 +365,28 @@ const PatientList = ({
                     {result.filename}
                   </h3>
                 </div>
-                <button
-                  className="ml-4 p-2 hover:bg-blue-50 rounded-full transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedPatient(isExpanded ? null : result.filename);
-                  }}
-                  aria-label={isExpanded ? "Collapse" : "Expand"}
-                >
-                  {isExpanded ? (
-                    <FaChevronUp className="text-blue-500 text-xl" />
-                  ) : (
-                    <FaChevronDown className="text-blue-500 text-xl" />
+                <div className="flex items-center gap-3">
+                  {hasCritical && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-bold shadow-sm">
+                      <FaExclamationTriangle className="text-red-600 text-lg" />
+                      Critical
+                    </div>
                   )}
-                </button>
+                  <button
+                    className="p-2 hover:bg-blue-50 rounded-full transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedPatient(isExpanded ? null : result.filename);
+                    }}
+                    aria-label={isExpanded ? "Collapse" : "Expand"}
+                  >
+                    {isExpanded ? (
+                      <FaChevronUp className="text-blue-500 text-xl" />
+                    ) : (
+                      <FaChevronDown className="text-blue-500 text-xl" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div
                 className={`overflow-hidden transition-all duration-300 ${
@@ -449,6 +460,15 @@ const PatientList = ({
         </button>
       </div>
     );
+  };
+
+  const hasCriticalText = (patientId: string) => {
+    if (!ocrResults) return false;
+    const patientDoc = ocrResults.find((doc) =>
+      doc.filename.includes(patientId)
+    );
+    if (!patientDoc) return false;
+    return patientDoc.extracted_text.toLowerCase().includes("critical");
   };
 
   const renderContent = () => {
@@ -630,7 +650,7 @@ const PatientList = ({
                   key={patient.id}
                   className={`bg-gradient-to-br from-blue-50 to-white border border-blue-200 hover:border-blue-400 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300 ${
                     expandedPatient === patient.id ? "min-h-[200px]" : ""
-                  }`}
+                  } relative`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -666,7 +686,7 @@ const PatientList = ({
                           expandedPatient === patient.id ? null : patient.id
                         );
                       }}
-                      className="ml-4 p-2 hover:bg-blue-50 rounded-full transition-colors"
+                      className="p-2 hover:bg-blue-50 rounded-full transition-colors"
                     >
                       {expandedPatient === patient.id ? (
                         <FaChevronUp className="text-blue-500 text-xl" />
@@ -675,6 +695,12 @@ const PatientList = ({
                       )}
                     </button>
                   </div>
+                  {hasCriticalText(patient.id) && (
+                    <div className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-bold shadow-sm">
+                      <FaExclamationTriangle className="text-red-600 text-lg" />
+                      Critical
+                    </div>
+                  )}
                   <div
                     className={`overflow-hidden transition-all duration-300 ${
                       expandedPatient === patient.id
