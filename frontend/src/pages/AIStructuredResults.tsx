@@ -15,7 +15,7 @@ import { usePatientStore } from "../store/patientStore";
 const AIStructuredResults = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"matched" | "review">("matched");
-  const { aiResults, setAIResults, nerResults } = usePatientStore();
+  const { aiResults, setAIResults, nerResults, ocrResults } = usePatientStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,7 +134,15 @@ const AIStructuredResults = () => {
   }, []);
 
   const handleBack = () => {
-    navigate(-1);
+    // Preserve all states when navigating back
+    navigate("/home", {
+      state: {
+        preserveState: true,
+        ocrResults: ocrResults,
+        nerResults: nerResults,
+        currentView: "patient-list",
+      },
+    });
   };
 
   const handleReview = (patient: MatchedResult) => {

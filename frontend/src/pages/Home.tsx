@@ -5,6 +5,7 @@ import CheckpointLoaderExample from "../components/CheckLoadingExample";
 import PatientList from "../components/PatientList";
 import UploadSection from "../components/UploadSection";
 import { motion } from "framer-motion";
+import { useLocation } from "react-router-dom";
 import { usePatientStore } from "../store/patientStore";
 
 interface FollowUpCare {
@@ -78,6 +79,7 @@ interface CheckpointState {
 }
 
 const Home = () => {
+  const location = useLocation();
   const [files, setFiles] = useState<File[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -97,6 +99,8 @@ const Home = () => {
     setFiles: setStoreFiles,
     files: storeFiles,
     setOCRResults,
+    ocrResults,
+    nerResults,
   } = usePatientStore() as unknown as {
     setPatients: (patients: Patient[]) => void;
     setNERResults: (results: object[]) => void;
@@ -106,6 +110,8 @@ const Home = () => {
     setOCRResults: (
       results: { filename: string; extracted_text: string }[]
     ) => void;
+    ocrResults: { filename: string; extracted_text: string }[];
+    nerResults: object[];
   };
 
   // Initialize patients, files and state from store if available
@@ -150,6 +156,24 @@ const Home = () => {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
+  // Handle preserved state when navigating back
+  useEffect(() => {
+    if (location.state?.preserveState) {
+      // Restore NER results
+      if (location.state.nerResults) {
+        setNERResults(location.state.nerResults);
+      }
+      // Restore OCR results
+      if (location.state.ocrResults) {
+        setOCRResults(location.state.ocrResults);
+      }
+      // Set the view to OCR output
+      setCurrentView(location.state.currentView || "ocr-output");
+      // Set NER ready state
+      setNerReady(true);
+    }
+  }, [location.state, setNERResults, setOCRResults, setCurrentView]);
 
   const handleFileSelect = () => {
     setCheckpointState((prev) => ({
