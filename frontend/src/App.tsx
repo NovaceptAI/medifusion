@@ -12,6 +12,7 @@ import ReviewPage from "./pages/Reviewpage";
 import Sidebar from "./components/Sidebar";
 import { SidebarProvider } from "./contexts/SidebarContext";
 import Statistics from "./pages/Statistics";
+import SuccessPage from "./components/SuccessPage";
 import Welcome from "./pages/Welcome";
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
                         element={<AIStructuredResults />}
                       />
                       <Route path="/review/:id" element={<ReviewPage />} />
+                      <Route path="/success" element={<SuccessPage />} />
                       <Route
                         path="*"
                         element={<Navigate to="/home" replace />}

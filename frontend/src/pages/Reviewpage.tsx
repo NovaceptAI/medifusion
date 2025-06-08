@@ -43,12 +43,56 @@ const ReviewPage = () => {
     console.log("Review page patient data:", patient); // Debug log
   }, [patient]);
 
-  const handleConfirm = (updatedPatient: MatchedResult) => {
+  const handleConfirm = async (updatedPatient: MatchedResult) => {
     console.log("Confirming patient data:", updatedPatient); // Debug log
-    // Update the patient in the store
-    updateAIResults(updatedPatient);
-    // Navigate back to AI Results
-    // navigate("/ai-results");
+    try {
+      const requestBody = {
+        name: updatedPatient.incoming.name,
+        dob: updatedPatient.incoming.dob,
+        ssn: updatedPatient.incoming.ssn,
+        insurance_number: updatedPatient.incoming.insurance_number,
+        medical_conditions: updatedPatient.incoming.medical_conditions,
+        address: updatedPatient.incoming.address,
+        phone: updatedPatient.incoming.phone,
+        email: updatedPatient.incoming.email,
+        gender: updatedPatient.incoming.gender,
+        doctor_name: updatedPatient.matched_with.doctor_name,
+        hospital_name: updatedPatient.matched_with.hospital_name,
+        diagnosis: updatedPatient.matched_with.diagnosis,
+        medical_record_number:
+          updatedPatient.matched_with.medical_record_number,
+        medications: updatedPatient.matched_with.medications,
+      };
+
+      console.log(
+        "Review API Request Body:",
+        JSON.stringify(requestBody, null, 2)
+      );
+
+      const response = await fetch("/api/patients/review", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to confirm patient review");
+      }
+
+      const data = await response.json();
+      console.log("Review API Response:", JSON.stringify(data, null, 2));
+
+      // Update the patient in the store
+      updateAIResults(updatedPatient);
+
+      // Call onReject to navigate back to AI Results
+      handleReject();
+    } catch (error) {
+      console.error("Error confirming patient review:", error);
+      // You might want to show an error message to the user here
+    }
   };
 
   const handleReject = () => {

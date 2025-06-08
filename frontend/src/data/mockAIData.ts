@@ -20,6 +20,11 @@ export interface MatchedPatient {
   insurance_number: string;
   medical_conditions: string;
   embedding: null;
+  doctor_name?: string;
+  hospital_name?: string;
+  diagnosis?: string;
+  medical_record_number?: string;
+  medications?: string[];
 }
 
 export interface MatchedResult {
