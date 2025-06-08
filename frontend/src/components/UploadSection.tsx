@@ -1,4 +1,4 @@
-import { FaCloudUploadAlt, FaEye, FaSpinner } from "react-icons/fa";
+import { FaCloudUploadAlt, FaEye, FaSpinner, FaTimes } from "react-icons/fa";
 
 import { useState } from "react";
 
@@ -11,7 +11,7 @@ interface UploadSectionProps {
 
 const UploadSection = ({
   onSimulateUpload,
-  files,
+  files = [],
   setFiles,
   onFileSelect,
 }: UploadSectionProps) => {
@@ -25,6 +25,12 @@ const UploadSection = ({
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const getFileNameWithoutExtension = (fileName: string | undefined | null) => {
+    if (!fileName) return "Unknown File";
+    const lastDotIndex = fileName.lastIndexOf(".");
+    return lastDotIndex === -1 ? fileName : fileName.substring(0, lastDotIndex);
   };
 
   const handleFileChange = async (
@@ -50,7 +56,8 @@ const UploadSection = ({
         return;
       }
 
-      setFiles(fileArray);
+      // Append new files to existing files instead of replacing
+      setFiles([...files, ...fileArray]);
     } catch (error) {
       console.error("Error processing files:", error);
     } finally {
@@ -93,7 +100,8 @@ const UploadSection = ({
         return;
       }
 
-      setFiles(droppedFiles);
+      // Append dropped files to existing files
+      setFiles([...files, ...droppedFiles]);
     } catch (error) {
       console.error("Error processing dropped files:", error);
     } finally {
@@ -111,6 +119,11 @@ const UploadSection = ({
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
+  };
+
+  const handleDeleteFile = (indexToDelete: number) => {
+    const newFiles = files.filter((_, index) => index !== indexToDelete);
+    setFiles(newFiles);
   };
 
   return (
@@ -180,27 +193,40 @@ const UploadSection = ({
                 key={index}
                 className="flex items-center justify-between gap-3 bg-gray-50 hover:bg-gray-100 transition rounded-md p-2 text-sm"
               >
-                <div className="flex items-center gap-3 flex-1">
-                  <span className="text-blue-500 text-lg">📄</span>
-                  <div className="flex flex-col">
-                    <span
-                      className="text-gray-700 truncate"
-                      style={{ maxWidth: "80%" }}
-                    >
-                      {file.name}
-                    </span>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <span className="text-blue-500 text-lg flex-shrink-0">
+                    📄
+                  </span>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <div className="relative group">
+                      <span className="text-gray-700 break-all block truncate">
+                        {getFileNameWithoutExtension(file.name)}
+                      </span>
+                      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10">
+                        {file.name}
+                      </div>
+                    </div>
                     <span className="text-xs text-gray-500">
                       {formatFileSize(file.size)}
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handlePreview(file)}
-                  className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
-                  title="Preview file"
-                >
-                  <FaEye />
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handlePreview(file)}
+                    className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
+                    title="Preview file"
+                  >
+                    <FaEye />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteFile(index)}
+                    className="p-2 text-red-500 hover:text-red-700 transition-colors"
+                    title="Delete file"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

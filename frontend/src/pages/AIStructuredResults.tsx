@@ -20,21 +20,6 @@ const AIStructuredResults = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only process the mock data if we don't have results in the store
-    if (aiResults.matched.length === 0 && aiResults.review.length === 0) {
-      const { matched_patients } = mockAIData.summary;
-      const matched = matched_patients.filter(
-        (p) => p.review_status === "Confirmed"
-      );
-      const review = matched_patients.filter(
-        (p) => p.review_status !== "Confirmed"
-      );
-
-      setAIResults(matched, review);
-    }
-  }, []);
-
-  useEffect(() => {
     // Call the fuzzy match API on mount
     const fetchAndMatch = async () => {
       console.log(
@@ -112,23 +97,31 @@ const AIStructuredResults = () => {
         if (!res.ok) throw new Error("Fuzzy match API failed");
         const data = await res.json();
         console.log("Fuzzy Match API Response:", JSON.stringify(data, null, 2));
-        const { matched_patients } = data.summary;
+        const { matched_patients, unmatched_patients } = data.summary;
         const matched = matched_patients.filter(
           (p: { review_status: string }) => p.review_status === "Confirmed"
         );
-        const review = matched_patients.filter(
-          (p: { review_status: string }) => p.review_status !== "Confirmed"
-        );
+        const review = [
+          ...matched_patients.filter(
+            (p: { review_status: string }) => p.review_status !== "Confirmed"
+          ),
+          ...unmatched_patients.filter(
+            (p: { review_status: string }) => p.review_status !== "Confirmed"
+          ),
+        ];
         setAIResults(matched, review);
       } catch (err) {
         console.error("Error processing AI structure, using mock data:", err);
-        const { matched_patients } = mockAIData.summary;
+        const { matched_patients, unmatched_patients } = mockAIData.summary;
         const matched = matched_patients.filter(
           (p) => p.review_status === "Confirmed"
         );
-        const review = matched_patients.filter(
-          (p) => p.review_status !== "Confirmed"
-        );
+        const review = [
+          ...matched_patients.filter((p) => p.review_status !== "Confirmed"),
+          ...(unmatched_patients
+            ? unmatched_patients.filter((p) => p.review_status !== "Confirmed")
+            : []),
+        ];
         setAIResults(matched, review);
         setError("Failed to process AI structure. Showing mock data.");
       } finally {
