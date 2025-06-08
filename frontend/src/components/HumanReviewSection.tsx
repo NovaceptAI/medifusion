@@ -61,6 +61,7 @@ const HumanReviewSection = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedPatient, setEditedPatient] =
     useState<MatchedResult>(safePatient);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
     setEditedPatient((prev: MatchedResult) => ({
@@ -86,18 +87,52 @@ const HumanReviewSection = ({
   };
 
   const handleEdit = () => {
-    setEditedPatient(safePatient);
+    // Prepare the data in the required format
+    const updatedPatient = {
+      ...safePatient,
+      matched_with: {
+        ...safePatient.matched_with,
+        doctor_name: safePatient.matched_with.doctor_name || "",
+        hospital_name: safePatient.matched_with.hospital_name || "",
+        diagnosis: safePatient.matched_with.diagnosis || "",
+        medical_record_number:
+          safePatient.matched_with.medical_record_number || "",
+        medications: safePatient.matched_with.medications || [],
+      },
+    };
+    console.log(
+      "Edit Mode - Current Patient Data:",
+      JSON.stringify(updatedPatient, null, 2)
+    );
+    setEditedPatient(updatedPatient);
     setIsEditing(true);
   };
 
-  const handleConfirm = () => {
-    onConfirm(editedPatient);
-    setIsEditing(false);
+  const handleConfirm = async () => {
+    setIsLoading(true);
+    try {
+      console.log(
+        "Confirming - Final Patient Data:",
+        JSON.stringify(editedPatient, null, 2)
+      );
+      await onConfirm(editedPatient);
+      setIsEditing(false);
+      // Navigate to success page with the updated patient data
+      navigate("/success", { state: { patientData: editedPatient } });
+    } catch (error) {
+      console.error("Error confirming patient:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {
     setEditedPatient(safePatient);
     setIsEditing(false);
+  };
+
+  const handleDecline = () => {
+    onReject();
   };
 
   return (
@@ -128,23 +163,42 @@ const HumanReviewSection = ({
             </h2>
             <div className="flex gap-2">
               {!isEditing ? (
-                <button
-                  onClick={handleEdit}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg"
-                >
-                  <FaEdit /> Edit Details
-                </button>
+                <>
+                  <button
+                    onClick={handleEdit}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg"
+                  >
+                    <FaEdit /> Edit Details
+                  </button>
+                  <button
+                    onClick={handleDecline}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md hover:shadow-lg"
+                  >
+                    <FaTimes /> Decline
+                  </button>
+                </>
               ) : (
                 <>
                   <button
                     onClick={handleConfirm}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md hover:shadow-lg"
+                    disabled={isLoading}
+                    className={`flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md hover:shadow-lg ${
+                      isLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                   >
-                    <FaCheck /> Confirm
+                    {isLoading ? (
+                      <span className="animate-spin">⌛</span>
+                    ) : (
+                      <FaCheck />
+                    )}{" "}
+                    {isLoading ? "Confirming..." : "Confirm"}
                   </button>
                   <button
                     onClick={handleCancel}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md hover:shadow-lg"
+                    disabled={isLoading}
+                    className={`flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-md hover:shadow-lg ${
+                      isLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                   >
                     <FaTimes /> Cancel
                   </button>

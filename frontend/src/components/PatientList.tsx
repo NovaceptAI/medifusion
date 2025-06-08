@@ -7,12 +7,15 @@ import {
   FaExclamationTriangle,
   FaFileMedical,
   FaNotesMedical,
+  FaPhoneAlt,
   FaRobot,
+  FaSpinner,
   FaUser,
 } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import axios from "axios";
 import { mockDocuments } from "../data/documentData";
 import { usePatientStore } from "../store/patientStore";
 
@@ -85,6 +88,7 @@ const PatientList = ({
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedPatient, setExpandedPatient] = useState<string | null>(null);
+  const [callingPatientId, setCallingPatientId] = useState<string | null>(null);
   const { setPatients, aiResults, ocrResults } =
     usePatientStore() as unknown as {
       setPatients: (patients: Patient[]) => void;
@@ -466,6 +470,67 @@ const PatientList = ({
     return patientDoc.extracted_text.toLowerCase().includes("critical");
   };
 
+  const handleCall = async (patient: Patient) => {
+    try {
+      setCallingPatientId(patient.id);
+      const apiKey =
+        "org_ff9934e9e4d6743e982e900453307bdaab5913db08b28f9088f26bbf519b2780fe1c1e0be9dd0a1d0a3a69";
+      console.log("API Key available:", !!apiKey);
+
+      const headers = {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      };
+
+      const data = {
+        phone_number: "+919078024933",
+        voice: "June",
+        wait_for_greeting: false,
+        record: true,
+        answered_by_enabled: true,
+        noise_cancellation: false,
+        interruption_threshold: 100,
+        block_interruptions: false,
+        max_duration: 12,
+        model: "base",
+        language: "en",
+        background_track: "none",
+        endpoint: "https://api.bland.ai",
+        voicemail_action: "hangup",
+        task: `You are an urgent medical notification agent.
+Your job is to immediately call the provider or doctor and inform them about a critical patient case.
+Say this:
+"Hello, this is an urgent medical call regarding patient [${patient.name}]. The situation is critical — [${patient.condition}]. Please treat this as a top priority and respond immediately."
+Be clear, calm, and serious.
+If they confirm they've received the message, end the call.
+If they have questions, politely repeat the key information and suggest they contact the care team directly.
+If the call is unanswered, leave a voicemail with the same message.
+End call when -
+As soon you hear the doctor says "yes i will look into it" or something related to it. Just say "thank you" and stop the call and end it`,
+      };
+
+      console.log("Making API call with headers:", {
+        ...headers,
+        Authorization: "***",
+      });
+      const response = await axios.post("https://api.bland.ai/v1/calls", data, {
+        headers,
+      });
+
+      if (response.data.status === "success") {
+        console.log("Call initiated successfully:", response.data.call_id);
+      }
+    } catch (error) {
+      console.error("Error initiating call:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("Response data:", error.response?.data);
+        console.error("Response status:", error.response?.status);
+      }
+    } finally {
+      setCallingPatientId(null);
+    }
+  };
+
   const renderContent = () => {
     if (error) {
       // Instead of showing error, show mock data and the Structure with AI button
@@ -676,20 +741,40 @@ const PatientList = ({
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        setExpandedPatient(
-                          expandedPatient === patient.id ? null : patient.id
-                        );
-                      }}
-                      className="p-2 hover:bg-blue-50 rounded-full transition-colors"
-                    >
-                      {expandedPatient === patient.id ? (
-                        <FaChevronUp className="text-blue-500 text-xl" />
-                      ) : (
-                        <FaChevronDown className="text-blue-500 text-xl" />
+                    <div className="flex items-center gap-2">
+                      {hasCriticalText(patient.id) && (
+                        <button
+                          onClick={() => handleCall(patient)}
+                          disabled={callingPatientId === patient.id}
+                          className={`p-2 rounded-full transition-colors ${
+                            callingPatientId === patient.id
+                              ? "bg-green-100 opacity-75 cursor-not-allowed"
+                              : "bg-green-100 hover:bg-green-200 call-button"
+                          }`}
+                          title="Call Doctor"
+                        >
+                          {callingPatientId === patient.id ? (
+                            <FaSpinner className="text-green-600 text-lg animate-spin" />
+                          ) : (
+                            <FaPhoneAlt className="text-green-600 text-lg" />
+                          )}
+                        </button>
                       )}
-                    </button>
+                      <button
+                        onClick={() => {
+                          setExpandedPatient(
+                            expandedPatient === patient.id ? null : patient.id
+                          );
+                        }}
+                        className="p-2 hover:bg-blue-50 rounded-full transition-colors"
+                      >
+                        {expandedPatient === patient.id ? (
+                          <FaChevronUp className="text-blue-500 text-xl" />
+                        ) : (
+                          <FaChevronDown className="text-blue-500 text-xl" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   {hasCriticalText(patient.id) && (
                     <div className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-bold shadow-sm">
@@ -716,8 +801,24 @@ const PatientList = ({
     );
   };
 
+  // Add this CSS to your component's JSX
+  const callButtonStyles = `
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .call-button {
+      animation: pulse 2s infinite;
+    }
+    .call-button:hover {
+      animation: none;
+    }
+  `;
+
   return (
     <div className="bg-white border-2 border-gray-200 shadow-2xl rounded-2xl p-6 h-full flex flex-col">
+      <style>{callButtonStyles}</style>
       {renderContent()}
     </div>
   );
