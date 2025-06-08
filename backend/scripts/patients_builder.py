@@ -8,7 +8,7 @@ from database.database import engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.embeddings_utils import get_openai_embedding
 
-openai.api_key = "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"  # Make sure to load this from .env ideally
+openai.api_key = os.getenv("OPENAI_API_KEY")
 SessionLocal = sessionmaker(bind=engine)
 
 PATIENT_GENERATION_PROMPT = """

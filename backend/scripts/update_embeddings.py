@@ -3,8 +3,7 @@ import psycopg2
 import os
 import json
 
-openai.api_key = "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"
-
+openai.api_key = os.getenv("OPENAI_API_KEY")
 conn = psycopg2.connect(dbname="medifusion", user="postgres", password="postgres")
 cursor = conn.cursor()
 
