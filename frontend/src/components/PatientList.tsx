@@ -4,14 +4,9 @@ import {
   FaCalendarAlt,
   FaChevronDown,
   FaChevronUp,
-  FaEnvelope,
   FaExclamationTriangle,
   FaFileMedical,
-  FaIdBadge,
-  FaMapMarkerAlt,
   FaNotesMedical,
-  FaPhone,
-  FaPills,
   FaRobot,
   FaUser,
 } from "react-icons/fa";
@@ -106,7 +101,7 @@ const PatientList = ({
   useEffect(() => {
     if (error) {
       const mockPatients = mockDocuments.map((doc) => ({
-        id: doc.id,
+        id: String(doc.id),
         name: doc.structured_data.ExtractedData.PatientName,
         dob: doc.structured_data.ExtractedData.DateOfBirth,
         mrn: doc.structured_data.ExtractedData.MRN,
@@ -475,7 +470,7 @@ const PatientList = ({
     if (error) {
       // Instead of showing error, show mock data and the Structure with AI button
       const mockPatients = mockDocuments.map((doc) => ({
-        id: doc.id,
+        id: String(doc.id),
         name: doc.structured_data.ExtractedData.PatientName,
         dob: doc.structured_data.ExtractedData.DateOfBirth,
         mrn: doc.structured_data.ExtractedData.MRN,
@@ -593,7 +588,8 @@ const PatientList = ({
       );
     }
 
-    if (!patients || patients.length === 0) {
+    // Show "No Patient Data" initially
+    if (!ocrResults || ocrResults.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <FaFileMedical className="text-gray-400 text-4xl mb-4" />

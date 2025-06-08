@@ -230,13 +230,17 @@ const Home = () => {
         throw new Error("Invalid response format from upload API");
       }
 
+      // Immediately display OCR output
       setOCRResults(uploadData.results);
       setCurrentView("ocr-output");
-
-      // Mark OCR as completed and start NER
       setCheckpointState((prev) => ({
         ...prev,
         ocr: "completed",
+      }));
+
+      // Start NER processing in the background
+      setCheckpointState((prev) => ({
+        ...prev,
         ner: "loading",
       }));
 
