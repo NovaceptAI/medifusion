@@ -160,20 +160,35 @@ const Home = () => {
   // Handle preserved state when navigating back
   useEffect(() => {
     if (location.state?.preserveState) {
-      // Restore NER results
-      if (location.state.nerResults) {
-        setNERResults(location.state.nerResults);
+      // Only restore states if we have files
+      if (files.length > 0) {
+        // Restore NER results
+        if (location.state.nerResults) {
+          setNERResults(location.state.nerResults);
+        }
+        // Restore OCR results
+        if (location.state.ocrResults) {
+          setOCRResults(location.state.ocrResults);
+        }
+        // Set the view to OCR output
+        setCurrentView(location.state.currentView || "ocr-output");
+        // Set NER ready state
+        setNerReady(true);
+      } else {
+        // Reset states if no files
+        setCurrentView("ocr-output");
+        setNerReady(false);
+        setNERResults([]);
+        setOCRResults([]);
       }
-      // Restore OCR results
-      if (location.state.ocrResults) {
-        setOCRResults(location.state.ocrResults);
-      }
-      // Set the view to OCR output
-      setCurrentView(location.state.currentView || "ocr-output");
-      // Set NER ready state
-      setNerReady(true);
     }
-  }, [location.state, setNERResults, setOCRResults, setCurrentView]);
+  }, [
+    location.state,
+    setNERResults,
+    setOCRResults,
+    setCurrentView,
+    files.length,
+  ]);
 
   const handleFileSelect = () => {
     setCheckpointState((prev) => ({
