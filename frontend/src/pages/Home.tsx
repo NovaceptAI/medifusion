@@ -86,14 +86,39 @@ const Home = () => {
     ocr: "pending",
     ner: "pending",
   });
-  const { setPatients: setStorePatients, setNERResults } = usePatientStore();
+  const {
+    setPatients: setStorePatients,
+    setNERResults,
+    patients: storePatients,
+    setFiles: setStoreFiles,
+    files: storeFiles,
+  } = usePatientStore();
 
-  // Initialize patients from store if available
+  // Initialize patients, files and state from store if available
+  useEffect(() => {
+    if (storePatients && storePatients.length > 0) {
+      setPatients(storePatients);
+      // Restore checkpoint state based on store data
+      setCheckpointState({
+        uploaded: "completed",
+        ocr: "completed",
+        ner: "completed",
+      });
+    }
+    if (storeFiles && storeFiles.length > 0) {
+      setFiles(storeFiles);
+    }
+  }, [storePatients, storeFiles]);
+
+  // Save patients and files to store when they change
   useEffect(() => {
     if (patients.length > 0) {
       setStorePatients(patients);
     }
-  }, [patients, setStorePatients]);
+    if (files.length > 0) {
+      setStoreFiles(files);
+    }
+  }, [patients, files, setStorePatients, setStoreFiles]);
 
   // Handle page reload
   useEffect(() => {
@@ -325,7 +350,15 @@ const Home = () => {
       );
       setPatients(transformedPatients);
       setStorePatients(transformedPatients);
+      setStoreFiles(files);
       setNERResults(processedResults);
+
+      // Update checkpoint state
+      setCheckpointState({
+        uploaded: "completed",
+        ocr: "completed",
+        ner: "completed",
+      });
     } catch (error: unknown) {
       console.error("Upload failed:", error);
       if (error instanceof Error) {

@@ -32,9 +32,11 @@ interface PatientStore {
   patients: Patient[];
   aiResults: AIResults;
   nerResults: unknown[];
+  files: File[];
   setPatients: (patients: Patient[]) => void;
   setAIResults: (matched: MatchedResult[], review: MatchedResult[]) => void;
   setNERResults: (nerResults: unknown[]) => void;
+  setFiles: (files: File[]) => void;
   updateAIResults: (updatedPatient: MatchedResult) => void;
 }
 
@@ -47,6 +49,7 @@ export const usePatientStore = create<PatientStore>()(
         review: [],
       },
       nerResults: [],
+      files: [],
       setPatients: (patients) => set({ patients }),
       setAIResults: (matched, review) =>
         set({
@@ -56,6 +59,7 @@ export const usePatientStore = create<PatientStore>()(
           },
         }),
       setNERResults: (nerResults) => set({ nerResults }),
+      setFiles: (files) => set({ files }),
       updateAIResults: (updatedPatient) =>
         set((state) => {
           const { matched, review } = state.aiResults;
@@ -89,6 +93,7 @@ export const usePatientStore = create<PatientStore>()(
         patients: state.patients,
         aiResults: state.aiResults,
         nerResults: state.nerResults,
+        files: state.files,
       }), // only persist these fields
     }
   )
