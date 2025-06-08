@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { Link } from "react-router-dom";
 import { useSidebarStore } from "../store/sidebarStore";
 
 const Sidebar = () => {
@@ -16,7 +17,7 @@ const Sidebar = () => {
 
   const menuItems = [
     {
-      path: "/",
+      path: "/home",
       icon: <FaHome size={20} />,
       label: "Home",
       description: "Dashboard Overview",
@@ -42,9 +43,11 @@ const Sidebar = () => {
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-2 rounded-lg">
               <FaUserMd className="w-5 h-5 text-white" />
             </div>
+            <Link to="/" className="hover:opacity-90 transition-opacity">
             <span className="text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               MediFusion
             </span>
+            </Link>
           </div>
         )}
         <button

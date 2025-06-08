@@ -263,7 +263,7 @@ const AIStructuredResults = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8 relative">
           <button
             onClick={handleBack}
             className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors shadow-sm"
@@ -271,6 +271,14 @@ const AIStructuredResults = () => {
             <FaArrowLeft />
             <span>Back to Upload</span>
           </button>
+          <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent py-1">
+              Patient Matching Summary
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Review and manage patient data matches from uploaded documents
+            </p>
+          </div>
         </div>
 
         {error && (
