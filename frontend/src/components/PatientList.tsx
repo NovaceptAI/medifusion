@@ -568,11 +568,11 @@ As soon you hear the doctor says "yes i will look into it" or something related 
                 <FaRobot className="text-2xl text-blue-500" />
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800">
-                    AI Document Structuring
+                    AI Document Matching
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Process all documents with AI to extract structured
-                    information
+                    Process all documents with AI to automatically match and
+                    link related records
                   </p>
                 </div>
               </div>
@@ -581,7 +581,7 @@ As soon you hear the doctor says "yes i will look into it" or something related 
                 onClick={handleAIStructure}
               >
                 <FaRobot className="text-xl" />
-                <span>Structure with AI</span>
+                <span>Match with AI</span>
               </button>
             </div>
           </div>
@@ -688,11 +688,11 @@ As soon you hear the doctor says "yes i will look into it" or something related 
                       <FaRobot className="text-2xl text-blue-500" />
                       <div>
                         <h3 className="text-lg font-semibold text-gray-800">
-                          AI Document Structuring
+                          AI Document Matching
                         </h3>
                         <p className="text-sm text-gray-600">
-                          Process all documents with AI to extract structured
-                          information
+                          Process all documents with AI to automatically match
+                          and link related records
                         </p>
                       </div>
                     </div>
@@ -701,7 +701,7 @@ As soon you hear the doctor says "yes i will look into it" or something related 
                       onClick={handleAIStructure}
                     >
                       <FaRobot className="text-xl" />
-                      <span>Structure with AI</span>
+                      <span>Match with AI</span>
                     </button>
                   </div>
                 </div>
