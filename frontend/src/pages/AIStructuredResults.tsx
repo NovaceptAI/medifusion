@@ -4,6 +4,7 @@ import {
   FaExclamationCircle,
   FaFileAlt,
   FaSearch,
+  FaSpinner,
 } from "react-icons/fa";
 import { useEffect, useState } from "react";
 
@@ -296,54 +297,67 @@ const AIStructuredResults = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setActiveTab("matched")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
-                activeTab === "matched"
-                  ? "bg-indigo-600 text-white shadow-md"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <FaCheckCircle
-                className={
-                  activeTab === "matched" ? "text-white" : "text-gray-500"
-                }
-              />
-              Matched ({aiResults.matched.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("review")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
-                activeTab === "review"
-                  ? "bg-indigo-600 text-white shadow-md"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <FaExclamationCircle
-                className={
-                  activeTab === "review" ? "text-white" : "text-gray-500"
-                }
-              />
-              Review ({aiResults.review.length})
-            </button>
+        {loading ? (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-col items-center justify-center min-h-[400px]">
+            <FaSpinner className="text-4xl text-indigo-600 animate-spin mb-4" />
+            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+              Processing Patient Matches
+            </h2>
+            <p className="text-gray-600 text-center max-w-md">
+              We're analyzing your documents and finding potential patient
+              matches. This may take a few moments...
+            </p>
           </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex gap-4 mb-6">
+              <button
+                onClick={() => setActiveTab("matched")}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
+                  activeTab === "matched"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <FaCheckCircle
+                  className={
+                    activeTab === "matched" ? "text-white" : "text-gray-500"
+                  }
+                />
+                Matched ({aiResults.matched.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("review")}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
+                  activeTab === "review"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <FaExclamationCircle
+                  className={
+                    activeTab === "review" ? "text-white" : "text-gray-500"
+                  }
+                />
+                Review ({aiResults.review.length})
+              </button>
+            </div>
 
-          <div className="space-y-4">
-            {activeTab === "matched"
-              ? aiResults.matched.map((patient) => (
-                  <div key={patient.matched_with.id || patient.incoming.name}>
-                    {renderPatientCard(patient)}
-                  </div>
-                ))
-              : aiResults.review.map((patient) => (
-                  <div key={patient.matched_with.id || patient.incoming.name}>
-                    {renderPatientCard(patient)}
-                  </div>
-                ))}
+            <div className="space-y-4">
+              {activeTab === "matched"
+                ? aiResults.matched.map((patient) => (
+                    <div key={patient.matched_with.id || patient.incoming.name}>
+                      {renderPatientCard(patient)}
+                    </div>
+                  ))
+                : aiResults.review.map((patient) => (
+                    <div key={patient.matched_with.id || patient.incoming.name}>
+                      {renderPatientCard(patient)}
+                    </div>
+                  ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
