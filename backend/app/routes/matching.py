@@ -19,8 +19,9 @@ from database.database import get_db
 from app.services.patient_matcher import process_fuzzy_match
 
 matching_router = APIRouter()
-
-@matching_router.post("/fuzzy-match/")
+null = None  # Placeholder for null values in JSON responses
+@matching_router.post("/fuzzy-match")
 def fuzzy_match(request: FuzzyMatchRequest, db: Session = Depends(get_db)):
     result = process_fuzzy_match(request.patients, db)
-    return {"summary": result}
+    return result
+    

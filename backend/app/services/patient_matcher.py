@@ -27,52 +27,33 @@ FUZZY_THRESHOLD = 90
 EMBEDDING_THRESHOLD = 0.85
 
 def patient_to_string(patient: PatientData) -> str:
-    """
-    Convert a PatientData object to a string for matching purposes.
-
-    Args:
-        patient (PatientData): The patient data.
-
-    Returns:
-        str: Concatenated string of patient attributes.
-    """
-    return " ".join(filter(None, [
-        patient.name,
-        patient.dob,
-        patient.ssn,
-        patient.insurance_number,
-        " ".join(patient.medical_conditions) if patient.medical_conditions else "",
-        patient.address,
-        patient.phone,
-        patient.email,
-        patient.gender
-    ]))
+    return " ".join(
+        str(x) for x in filter(None, [
+            patient.name,
+            patient.dob,
+            patient.ssn,
+            patient.insurance_number,
+            patient.gender,
+            patient.address,
+            patient.phone,
+            patient.email,
+            patient.medical_record_number,
+            patient.diagnosis,
+            patient.doctor_name,
+            patient.hospital_name,
+            " ".join(patient.medical_conditions or []),
+            " ".join(patient.medications or [])
+        ])
+    )
 
 def parse_incoming_json(raw_json: List[dict]) -> List[PatientData]:
-    """
-    Parse and clean a list of raw JSON objects into PatientData objects.
-
-    Args:
-        raw_json (List[dict]): List of raw patient data dictionaries.
-
-    Returns:
-        List[PatientData]: List of cleaned PatientData objects.
-    """
     cleaned_patients = []
-
     for item in raw_json:
         try:
-            patient = PatientData(
-                name=item.get("name", "").strip(),
-                dob=item.get("dob"),
-                ssn=item.get("ssn"),
-                insurance_number=item.get("insurance_number"),
-                conditions=item.get("medical_conditions", "")
-            )
+            patient = PatientData(**item)
             cleaned_patients.append(patient)
         except Exception as e:
             print(f"Skipping invalid record: {e}")
-
     return cleaned_patients
 
 def process_fuzzy_match(patients_json: List[Dict], db) -> Dict:
@@ -89,9 +70,7 @@ def process_fuzzy_match(patients_json: List[Dict], db) -> Dict:
         best_score = 0
         method = None
 
-        # Fuzzy matching
         for db_patient in existing_patients:
-            db_str = f"{db_patient.name} {db_patient.dob or ''} {db_patient.insurance_number or ''} {db_patient.medical_conditions or ''}"
             is_match, score = is_fuzzy_match(db_patient, incoming)
             if is_match and score > best_score:
                 best_score = score
@@ -100,16 +79,13 @@ def process_fuzzy_match(patients_json: List[Dict], db) -> Dict:
 
         if best_score >= FUZZY_THRESHOLD:
             incoming_data = incoming.dict()
-
-            # Convert dob from string to date object if needed
-            if incoming_data.get("dob") and isinstance(incoming_data["dob"], str):
+            if isinstance(incoming_data.get("dob"), str):
                 try:
                     incoming_data["dob"] = datetime.strptime(incoming_data["dob"], "%Y-%m-%d").date()
                 except ValueError:
-                    incoming_data["dob"] = None  # Or raise an error/log it
+                    incoming_data["dob"] = None
 
             update_patient(db, best_match, incoming_data)
-
             matched_patients.append({
                 "incoming": incoming.dict(),
                 "matched_with": best_match.to_dict(),
@@ -120,30 +96,33 @@ def process_fuzzy_match(patients_json: List[Dict], db) -> Dict:
             })
             continue
 
-        # Embedding matching
         incoming_embedding = get_openai_embedding(incoming_str)
         emb_best = None
         emb_score = 0
 
         for db_patient in existing_patients:
             if db_patient.embedding:
-                score = cosine_similarity(incoming_embedding, db_patient.embedding)
+                # Parse string embedding to list if needed
+                embedding = db_patient.embedding
+                if isinstance(embedding, str):
+                    try:
+                        embedding = ast.literal_eval(embedding)
+                    except Exception:
+                        continue  # skip if parsing fails
+                score = cosine_similarity(incoming_embedding, embedding)
                 if score > emb_score:
                     emb_score = score
                     emb_best = db_patient
 
         if emb_score >= EMBEDDING_THRESHOLD:
             incoming_data = incoming.dict()
-
-            # Convert dob from string to date object if present
-            if incoming_data.get("dob") and isinstance(incoming_data["dob"], str):
+            if isinstance(incoming_data.get("dob"), str):
                 try:
                     incoming_data["dob"] = datetime.strptime(incoming_data["dob"], "%Y-%m-%d").date()
                 except ValueError:
-                    incoming_data["dob"] = None  # Or handle differently/log error
+                    incoming_data["dob"] = None
 
             update_patient(db, emb_best, incoming_data)
-
             matched_patients.append({
                 "incoming": incoming.dict(),
                 "matched_with": emb_best.to_dict(),
@@ -152,7 +131,6 @@ def process_fuzzy_match(patients_json: List[Dict], db) -> Dict:
                 "status": "updated",
                 "review_status": "Confirmed" if emb_score >= 0.95 else "Human Review"
             })
-
         elif all([incoming.name, incoming.dob, incoming.ssn, incoming.insurance_number]):
             new_patients.append({
                 **incoming.dict(),
@@ -179,20 +157,8 @@ def process_fuzzy_match(patients_json: List[Dict], db) -> Dict:
     }
 
 def find_embedding_match(incoming, db, similarity_threshold=0.85):
-    """
-    Find the best embedding-based match for an incoming patient.
-
-    Args:
-        incoming (PatientData): Incoming patient data.
-        db: Database session or connection.
-        similarity_threshold (float): Minimum similarity score for a match.
-
-    Returns:
-        Tuple: (best_match, best_score)
-    """
-    incoming_text = f"{incoming.name} {incoming.dob or ''} {incoming.medical_conditions or ''}"
+    incoming_text = patient_to_string(incoming)
     incoming_embedding = get_openai_embedding(incoming_text)
-
     existing_patients = get_all_patients(db)
     best_match = None
     best_score = 0

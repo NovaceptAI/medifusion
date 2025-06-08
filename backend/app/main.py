@@ -29,7 +29,8 @@ from app.routes.ingestion import ingestion_router
 
 # Fuzzy Import
 from app.routes.matching import matching_router
-
+from app.routes.ner_routes import ner_router as ner_router
+from app.routes.review import review_router as review_router
 # Optional: Setup logs, database, vector DB, etc.
 # from app.database.db import init_db
 # from app.services.embedding_service import load_vector_index
@@ -48,7 +49,7 @@ app = FastAPI(
 # CORS setup (adjust origins in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with your frontend origin in production
+    allow_origins=["*"],  # or specify your frontend URL(s)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,6 +57,8 @@ app.add_middleware(
 
 # Include API routers
 app.include_router(ingestion_router, prefix="/api/ingestion", tags=["Ingestion"])
+app.include_router(ner_router, prefix="/api/ner", tags=["NER"])
+app.include_router(review_router, prefix="/api/patients", tags=["Review"])
 # app.include_router(extraction_router, prefix="/api/extraction", tags=["Extraction"])
 # app.include_router(matching_router, prefix="/api/matching", tags=["Matching"])
 # app.include_router(feedback_router, prefix="/api/feedback", tags=["Human Feedback"])
