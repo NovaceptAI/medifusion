@@ -8,7 +8,7 @@ from database.database import engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.embeddings_utils import get_openai_embedding
 
-openai.api_key = "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"  # Make sure to load this from .env ideally
+openai.api_key = os.getenv("OPENAI_API_KEY")
 SessionLocal = sessionmaker(bind=engine)
 
 PATIENT_GENERATION_PROMPT = """
@@ -16,11 +16,13 @@ Generate a list of 10 fake patient records in the following JSON format:
 
 [
   {
-    "name": "Full Name",
+    "name": "Full Name", 
+    "gender": "male/female",
+    age: "xx",  # integer age
     "dob": "YYYY-MM-DD",
     "ssn": "XXX-XX-XXXX",
-    "insurance_number": "INS-XXXX-XXX",
     "conditions": "comma-separated medical conditions"
+    "insurance_number": "INS-XXXX-XXX",
   },
   ...
 ]
@@ -60,11 +62,13 @@ def insert_generated_patients(patients: list, db: Session):
 
             patient = Patient(
                 name=p['name'],
+                gender=p['gender'],
+                age=int(p['age']),
                 dob=dob,
                 ssn=p['ssn'],
                 insurance_number=p['insurance_number'],
-                conditions=p['conditions'],
-                embedding=embedding
+                medical_conditions=p['conditions']
+                
             )
             db.add(patient)
         except Exception as e:
