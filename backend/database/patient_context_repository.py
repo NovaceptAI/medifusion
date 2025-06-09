@@ -6,12 +6,13 @@ class PatientContextRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_context_by_patient_id(self, patient_id: int):
-        return self.db.query(PatientContext).filter_by(patient_id=patient_id).first()
+    def get_context_by_patient_id(self, document_id: UUID):
+        return self.db.query(PatientContext).filter_by(document_id=document_id).first()
     
-    def save_patient_context(db: Session, patient_id: int, context_json: dict):
-        context = PatientContext(patient_id=patient_id, context_json=context_json)
-        db.add(context)
-        db.commit()
-        db.refresh(context)
+    def save_patient_context(self, document_id: UUID, context_json: dict):
+        context = PatientContext(document_id=document_id, context_json=context_json)
+        self.db.add(context)
+        self.db.commit()
+        self.db.close()
+
         return context

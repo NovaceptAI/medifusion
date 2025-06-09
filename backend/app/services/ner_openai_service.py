@@ -1,13 +1,13 @@
 from database.database import get_db
 from database.schemas import StructuredPatientInput
-from database.patient_repository import add_patient_from_json
+from database.patient_context_repository import PatientContextRepository
 import openai
 import os
 from dotenv import load_dotenv
 from typing import Union
 import json
 import re
-
+import uuid
 # Load environment variables
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -144,12 +144,12 @@ def extract_ner_with_openai(document: str) -> dict:
         result_text = response.choices[0].message.content.strip()
 
         try:
-            return json.loads(result_text)
+            parsed_json = json.loads(result_text)
         except json.JSONDecodeError:
             json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
             if json_match:
                 try:
-                    return json.loads(json_match.group())
+                    parsed_json = json.loads(json_match.group())
                 except json.JSONDecodeError:
                     return {
                         "error": "Cleaned JSON also failed to parse",
@@ -161,6 +161,20 @@ def extract_ner_with_openai(document: str) -> dict:
                     "raw_response": result_text
                 }
 
+        # ✅ Add DocumentID
+        doc_id = str(uuid.uuid4())
+        parsed_json["structured_data"]["ExtractedData"]["DocumentID"] = doc_id
+
+        # Add details to patient_context table
+        db = next(get_db())
+        repo = PatientContextRepository(db)
+        repo.save_patient_context(
+            document_id=doc_id,
+            context_json=parsed_json["structured_data"]["ExtractedData"]
+        )
+
+        return parsed_json
+
     except Exception as e:
         return {
             "error": f"OpenAI API error: {str(e)}"
@@ -169,31 +183,4 @@ def extract_ner_with_openai(document: str) -> dict:
 def analyze_medical_document(input_path_or_text: Union[str, os.PathLike], is_file: bool = True) -> dict:
     text = read_txt_input(input_path_or_text, is_file)
     result = extract_ner_with_openai(text)
-    db  = None
-    try:
-        db = next(get_db())
-        structured_input = StructuredPatientInput(**result)
-        patient = add_patient_from_json(db, structured_input)
-
-        return {
-            "status": "success",
-            "patient_id": patient.id,
-            "message": "Patient data stored successfully.",
-            "structured_data": result  # include parsed data
-        }
-
-    except Exception as e:
-        return {
-            "error": f"DB insertion error: {str(e)}",
-            "structured_data": result  # still return structured data
-        }
-    finally:
-        if db:
-            db.close()
-
-
-
-# Example usage
-# if __name__ == "__main__":
-#     result = analyze_medical_document("textract output (1).txt", is_file=True)
-#     print(json.dumps(result, indent=2))
+    return result

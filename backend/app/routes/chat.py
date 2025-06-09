@@ -17,16 +17,16 @@ def ingest_context(payload: PatientContextCreate, db: Session = Depends(get_db))
     result = chat_service.ingest_patient_context(db, payload.patient_id, payload.context_json)
     return {"message": "Context ingested", "id": result.id}
 
-@chat_router.post("/chat/{patient_id}")
-async def chat_with_patient(patient_id: int, question: str, db: Session = Depends(get_db)):
+@chat_router.post("/ask/{document_id}")
+async def chat_with_patient(document_id: UUID, question: str, db: Session = Depends(get_db)):
     repo = PatientContextRepository(db)
-    context_record = repo.get_context_by_patient_id(patient_id)
+    context_record = repo.get_context_by_patient_id(document_id)
 
     if not context_record:
         raise HTTPException(status_code=404, detail="Patient context not found.")
 
     # Retrieve past conversation
-    history = user_chat_histories.get(patient_id, [])
+    history = user_chat_histories.get(document_id, [])
 
     # Ask OpenAI
     answer = await chat_service.answer_question(
@@ -38,6 +38,6 @@ async def chat_with_patient(patient_id: int, question: str, db: Session = Depend
     # Update history
     history.append({"role": "user", "content": question})
     history.append({"role": "assistant", "content": answer})
-    user_chat_histories[patient_id] = history[-10:]  # keep last 5 exchanges
+    user_chat_histories[document_id] = history[-10:]  # keep last 5 exchanges
 
     return {"answer": answer}

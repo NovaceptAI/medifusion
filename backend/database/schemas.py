@@ -1,7 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Literal
-from datetime import date
+from datetime import date, datetime
 
 class PatientData(BaseModel):
     name: str
@@ -145,7 +145,7 @@ class PatientResponse(BaseModel):
 
 
 class PatientContextCreate(BaseModel):
-    patient_id: int
+    document_id: str  # UUID as string
     context_json: dict
 
 class ChatRequest(BaseModel):

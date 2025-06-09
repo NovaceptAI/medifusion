@@ -60,8 +60,8 @@ class Patient(Base):
     height = Column(String)
     follow_up = Column(Text)
     provider_notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     embedding = Column(JSONB, nullable=True)  # serialized OpenAI vector
 
     def to_dict(self):
@@ -118,6 +118,6 @@ class PatientContext(Base):
     __tablename__ = "patient_contexts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    document_id = Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False)
     context_json = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
