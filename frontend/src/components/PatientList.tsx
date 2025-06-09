@@ -15,6 +15,8 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import AIChat from "./AIChat";
+import ChatIcon from "./ChatIcon";
 import axios from "axios";
 import { mockDocuments } from "../data/documentData";
 import { usePatientStore } from "../store/patientStore";
@@ -89,6 +91,10 @@ const PatientList = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedPatient, setExpandedPatient] = useState<string | null>(null);
   const [callingPatientId, setCallingPatientId] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
+    null
+  );
   const { setPatients, aiResults, ocrResults } =
     usePatientStore() as unknown as {
       setPatients: (patients: Patient[]) => void;
@@ -531,6 +537,11 @@ As soon you hear the doctor says "yes i will look into it" or something related 
     }
   };
 
+  const handleChatOpen = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setChatOpen(true);
+  };
+
   const renderContent = () => {
     if (error) {
       // Instead of showing error, show mock data and the Structure with AI button
@@ -760,6 +771,7 @@ As soon you hear the doctor says "yes i will look into it" or something related 
                           )}
                         </button>
                       )}
+                      <ChatIcon onClick={() => handleChatOpen(patient.id)} />
                       <button
                         onClick={() => {
                           setExpandedPatient(
@@ -820,6 +832,11 @@ As soon you hear the doctor says "yes i will look into it" or something related 
     <div className="bg-white border-2 border-gray-200 shadow-2xl rounded-2xl p-6 h-full flex flex-col">
       <style>{callButtonStyles}</style>
       {renderContent()}
+      <AIChat
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        patientId={selectedPatientId || undefined}
+      />
     </div>
   );
 };
