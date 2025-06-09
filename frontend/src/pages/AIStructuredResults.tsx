@@ -153,56 +153,49 @@ const AIStructuredResults = () => {
         const data = (await res.json()) as APIResponse;
         console.log("Fuzzy Match API Response:", JSON.stringify(data, null, 2));
 
-        // Transform API response into MatchedResult format
-        const transformToMatchedResult = (
-          patient: PatientData
-        ): MatchedResult => ({
-          incoming: {
-            name: patient.name || "Unknown",
-            dob: patient.dob || "Unknown",
-            insurance_number: patient.insurance_number || "Unknown",
-            medical_conditions: patient.medical_conditions || [],
-            phone: patient.phone || "",
-            email: patient.email || "",
-            address: patient.address || "",
-            gender: patient.gender || "",
-            ssn: patient.ssn || "",
-          },
-          matched_with: {
-            id: 0, // Since this is unmatched, we use 0 as a placeholder
-            name: patient.name || "Unknown",
-            dob: patient.dob || "Unknown",
-            insurance_number: patient.insurance_number || "Unknown",
-            medical_conditions: patient.medical_conditions.join(", ") || "",
-            embedding: null, // Force null since we don't have embeddings in the API response
-            doctor_name: patient.doctor_name || "",
-            hospital_name: patient.hospital_name || "",
-            diagnosis: patient.diagnosis || "",
-            medical_record_number: patient.medical_record_number || "",
-            medications: patient.medications || [],
-            ssn: patient.ssn || "",
-          },
-          method: "manual",
-          score: 0,
-          status: "pending",
-          review_status: patient.review_status || "Pending",
-        });
+        // Helper to wrap flat unmatched patients
+        function wrapUnmatchedPatient(patient: PatientData): MatchedResult {
+          return {
+            incoming: {
+              name: patient.name || "Unknown",
+              dob: patient.dob || "Unknown",
+              insurance_number: patient.insurance_number || "Unknown",
+              medical_conditions: patient.medical_conditions || [],
+              phone: patient.phone || "",
+              email: patient.email || "",
+              address: patient.address || "",
+              gender: patient.gender || "",
+              ssn: patient.ssn || "",
+            },
+            matched_with: {
+              id: 0,
+              name: "",
+              dob: "",
+              insurance_number: "",
+              medical_conditions: "",
+              embedding: null,
+              doctor_name: "",
+              hospital_name: "",
+              diagnosis: "",
+              medical_record_number: "",
+              medications: [],
+              ssn: "",
+            },
+            method: "manual",
+            score: 0,
+            status: "pending",
+            review_status: patient.review_status || "Pending",
+          };
+        }
 
         const { matched_patients = [], unmatched_patients = [] } = data;
-
-        // Process matched patients
-        const matched = matched_patients
-          .filter((p: PatientData) => p.review_status === "Confirmed")
-          .map(transformToMatchedResult);
-
-        // Process unmatched patients
+        const matched = matched_patients.filter(
+          (p) => p.review_status === "Confirmed"
+        );
         const review = [
-          ...matched_patients
-            .filter((p: PatientData) => p.review_status !== "Confirmed")
-            .map(transformToMatchedResult),
-          ...unmatched_patients.map(transformToMatchedResult),
+          ...matched_patients.filter((p) => p.review_status !== "Confirmed"),
+          ...unmatched_patients.map(wrapUnmatchedPatient),
         ];
-
         setAIResults(matched, review);
       } catch (err) {
         console.error("Error processing AI structure, using mock data:", err);
