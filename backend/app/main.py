@@ -29,6 +29,10 @@ from app.routes.ingestion import ingestion_router
 
 # Fuzzy Import
 from app.routes.matching import matching_router
+
+from app.routes.patient import patient_router
+
+from app.routes.chat import chat_router
 from app.routes.ner_routes import ner_router as ner_router
 from app.routes.review import review_router as review_router
 # Optional: Setup logs, database, vector DB, etc.
@@ -63,8 +67,10 @@ app.include_router(review_router, prefix="/api/patients", tags=["Review"])
 # app.include_router(matching_router, prefix="/api/matching", tags=["Matching"])
 # app.include_router(feedback_router, prefix="/api/feedback", tags=["Human Feedback"])
 # app.include_router(health_router, prefix="/api", tags=["Health Check"])
+app.include_router(patient_router, prefix="/api", tags=["Patients"])
 
 app.include_router(matching_router, prefix="/api/matching", tags=["Matching"])
+app.include_router(chat_router, prefix="/api", tags=["Chat"])
 # Startup and shutdown events
 # @app.on_event("startup")
 # async def startup_event():

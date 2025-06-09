@@ -16,11 +16,13 @@ Generate a list of 10 fake patient records in the following JSON format:
 
 [
   {
-    "name": "Full Name",
+    "name": "Full Name", 
+    "gender": "male/female",
+    age: "xx",  # integer age
     "dob": "YYYY-MM-DD",
     "ssn": "XXX-XX-XXXX",
-    "insurance_number": "INS-XXXX-XXX",
     "conditions": "comma-separated medical conditions"
+    "insurance_number": "INS-XXXX-XXX",
   },
   ...
 ]
@@ -60,11 +62,13 @@ def insert_generated_patients(patients: list, db: Session):
 
             patient = Patient(
                 name=p['name'],
+                gender=p['gender'],
+                age=int(p['age']),
                 dob=dob,
                 ssn=p['ssn'],
                 insurance_number=p['insurance_number'],
-                conditions=p['conditions'],
-                embedding=embedding
+                medical_conditions=p['conditions']
+                
             )
             db.add(patient)
         except Exception as e:

@@ -1,3 +1,6 @@
+from database.database import get_db
+from database.schemas import StructuredPatientInput
+from database.patient_context_repository import PatientContextRepository
 import openai
 import os
 from dotenv import load_dotenv
@@ -161,6 +164,15 @@ def extract_ner_with_openai(document: str) -> dict:
         # ✅ Add DocumentID
         doc_id = str(uuid.uuid4())
         parsed_json["structured_data"]["ExtractedData"]["DocumentID"] = doc_id
+
+        # Add details to patient_context table
+        db = next(get_db())
+        repo = PatientContextRepository(db)
+        repo.save_patient_context(
+            document_id=doc_id,
+            context_json=parsed_json["structured_data"]["ExtractedData"]
+        )
+
         return parsed_json
 
     except Exception as e:

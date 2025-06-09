@@ -1,9 +1,35 @@
-from sqlalchemy import Column, Integer, String, Date, Text, Float, DateTime, ARRAY
+from sqlalchemy import Column, Integer, String, Date, Text, Float, DateTime, ARRAY, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
-import datetime
+from sqlalchemy import Column, DateTime, JSON, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import declarative_base
+import uuid
+from datetime import datetime
 
 Base = declarative_base()
+
+# class Patient(Base):
+#     __tablename__ = "patients"
+
+#     id = Column(Integer, primary_key=True)
+#     name = Column(String)
+#     dob = Column(Date)
+#     ssn = Column(String)
+#     insurance_number = Column(String)
+#     medical_conditions = Column(String)
+#     embedding = Column(JSONB, nullable=True)  # Store serialized list as JSON string
+
+#     def to_dict(self):
+#         return {
+#             "id": self.id,
+#             "name": self.name,
+#             "dob": self.dob.isoformat() if self.dob else None,
+#             "ssn": self.ssn,
+#             "insurance_number": self.insurance_number,
+#             "medical_conditions": self.medical_conditions,
+#             "embedding": None  # or base64 if needed
+#         }
 
 class Patient(Base):
     __tablename__ = "patients"
@@ -34,8 +60,8 @@ class Patient(Base):
     height = Column(String)
     follow_up = Column(Text)
     provider_notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     embedding = Column(JSONB, nullable=True)  # serialized OpenAI vector
 
     def to_dict(self):
@@ -85,3 +111,13 @@ class UnmatchedPatient(Base):
     email = Column(String, nullable=True)
     medical_conditions = Column(ARRAY(String), nullable=True)
     embedding = Column(JSONB, nullable=True)
+    medical_conditions = Column(Text, nullable=True)
+
+
+class PatientContext(Base):
+    __tablename__ = "patient_contexts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    document_id = Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False)
+    context_json = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
