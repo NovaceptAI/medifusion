@@ -538,8 +538,15 @@ As soon you hear the doctor says "yes i will look into it" or something related 
   };
 
   const handleChatOpen = (patientId: string) => {
-    setSelectedPatientId(patientId);
-    setChatOpen(true);
+    if (chatOpen && selectedPatientId === patientId) {
+      // If chat is open for this patient, close it
+      setChatOpen(false);
+      setSelectedPatientId(null);
+    } else {
+      // If chat is closed or open for a different patient, open it for this patient
+      setSelectedPatientId(patientId);
+      setChatOpen(true);
+    }
   };
 
   const renderContent = () => {

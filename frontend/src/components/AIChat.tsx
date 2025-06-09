@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { Send } from "lucide-react";
+import { usePatientStore } from "../store/patientStore";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,9 +18,30 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { nerResults } = usePatientStore() as unknown as {
+    nerResults: Array<{
+      filename: string;
+      extracted_text: {
+        structured_data: {
+          ExtractedData: {
+            DocumentID: string;
+          };
+        };
+      };
+    }>;
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !patientId) return;
 
     const newMessage: Message = {
       role: "user",
@@ -30,18 +52,55 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
     setInput("");
     setIsLoading(true);
 
-    // Simulate AI response for now
-    setTimeout(() => {
+    try {
+      // Find the document ID for the selected patient
+      const patientDoc = nerResults.find((doc) => doc.filename === patientId);
+      if (
+        !patientDoc?.extracted_text?.structured_data?.ExtractedData?.DocumentID
+      ) {
+        throw new Error("Document ID not found");
+      }
+
+      const documentId =
+        patientDoc.extracted_text?.structured_data?.ExtractedData?.DocumentID;
+      const question = encodeURIComponent(input.trim());
+      const url = `/api/chat/ask/${documentId}?question=${question}`;
+
+      console.log("Chat API Request:", {
+        url,
+        documentId,
+        question: input.trim(),
+      });
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json();
+
+      console.log("Chat API Response:", data);
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "This is a simulated response. The backend integration will be implemented later.",
+          content: data.answer || "Sorry, I couldn't process your request.",
         },
       ]);
+    } catch (error) {
+      console.error("Error in chat:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Sorry, there was an error processing your request.",
+        },
+      ]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   if (!isOpen) return null;
@@ -90,9 +149,10 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t bg-gray-50">
+      <div className="p-4 border-t bg-blue-50">
         <div className="flex space-x-2">
           <input
             type="text"
@@ -100,7 +160,7 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type your message..."
-            className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-black"
           />
           <button
             onClick={handleSend}
