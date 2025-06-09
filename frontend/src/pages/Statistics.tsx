@@ -178,7 +178,7 @@ export default function Statistics() {
               Last Updated
             </p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              June 5
+              June 9
             </p>
           </CardContent>
         </Card>

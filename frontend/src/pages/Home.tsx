@@ -190,6 +190,40 @@ const Home = () => {
     files.length,
   ]);
 
+  // Reset states when navigating from Statistics to Home
+  useEffect(() => {
+    if (location.pathname === "/home" && !location.state?.preserveState) {
+      // Reset all states to initial values
+      setPatients([]);
+      setFiles([]);
+      setOCRResults([]);
+      setNERResults([]);
+      setCurrentView("ocr-output");
+      setNerReady(false);
+      setError(undefined);
+
+      // Reset checkpoint states
+      setCheckpointState({
+        uploaded: "pending",
+        ocr: "pending",
+        ner: "pending",
+      });
+
+      // Reset store states
+      setStorePatients([]);
+      setStoreFiles([]);
+    }
+  }, [
+    location.pathname,
+    location.state,
+    setPatients,
+    setFiles,
+    setOCRResults,
+    setNERResults,
+    setStorePatients,
+    setStoreFiles,
+  ]);
+
   const handleFileSelect = () => {
     setCheckpointState((prev) => ({
       ...prev,

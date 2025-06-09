@@ -332,12 +332,12 @@ const PatientList = ({
       <div className="space-y-4">
         {ocrResults.map((result) => {
           const isExpanded = expandedPatient === result.filename;
-          const hasCritical = result.extracted_text
-            .toLowerCase()
+          const hasCritical = result?.extracted_text
+            ?.toLowerCase()
             .includes("critical");
           let sampleLines: string[] = [];
           if (typeof result.extracted_text === "string") {
-            const lines = result.extracted_text.split("\n").filter(Boolean);
+            const lines = result?.extracted_text?.split("\n").filter(Boolean);
             // Shuffle lines
             for (let i = lines.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
@@ -345,7 +345,7 @@ const PatientList = ({
             }
             sampleLines = lines.slice(0, Math.min(30, lines.length));
           } else {
-            sampleLines = [JSON.stringify(result.extracted_text, null, 2)];
+            sampleLines = [JSON.stringify(result?.extracted_text, null, 2)];
           }
           return (
             <div
