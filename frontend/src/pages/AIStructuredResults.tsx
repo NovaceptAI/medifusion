@@ -4,6 +4,7 @@ import {
   FaExclamationCircle,
   FaFileAlt,
   FaSearch,
+  FaSpinner,
 } from "react-icons/fa";
 import { useEffect, useState } from "react";
 
@@ -12,27 +13,60 @@ import { mockAIData } from "../data/mockAIData";
 import { useNavigate } from "react-router-dom";
 import { usePatientStore } from "../store/patientStore";
 
+// Add type definitions for API response
+interface PatientData {
+  name: string;
+  dob: string | null;
+  gender: string | null;
+  ssn: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  insurance_number: string | null;
+  medical_record_number: string | null;
+  emergency_contact: string | null;
+  medical_conditions: string[];
+  medications: string[];
+  allergies: string[];
+  diagnosis: string | null;
+  doctor_name: string | null;
+  department: string | null;
+  hospital_name: string | null;
+  visit_date: string | null;
+  blood_pressure: string | null;
+  heart_rate: string | null;
+  temperature: string | null;
+  weight: string | null;
+  height: string | null;
+  follow_up: string | null;
+  provider_notes: string | null;
+  embedding: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  reason?: string;
+  review_status?: string;
+}
+
+interface APIResponse {
+  matched_patients: PatientData[];
+  unmatched_patients: PatientData[];
+  new_patients: PatientData[];
+  summary: {
+    total: number;
+    matched: number;
+    unmatched: number;
+    new: number;
+    review_required: number;
+    confirmed: number;
+  };
+}
+
 const AIStructuredResults = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"matched" | "review">("matched");
-  const { aiResults, setAIResults, nerResults } = usePatientStore();
+  const { aiResults, setAIResults, nerResults, ocrResults } = usePatientStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Only process the mock data if we don't have results in the store
-    if (aiResults.matched.length === 0 && aiResults.review.length === 0) {
-      const { matched_patients } = mockAIData.summary;
-      const matched = matched_patients.filter(
-        (p) => p.review_status === "Confirmed"
-      );
-      const review = matched_patients.filter(
-        (p) => p.review_status !== "Confirmed"
-      );
-
-      setAIResults(matched, review);
-    }
-  }, []);
 
   useEffect(() => {
     // Call the fuzzy match API on mount
@@ -45,8 +79,9 @@ const AIStructuredResults = () => {
       try {
         // Use nerResults from global store
         console.log("NER nerResults loaded", nerResults);
-        if (!Array.isArray(nerResults) || nerResults.length === 0)
+        if (!Array.isArray(nerResults) || nerResults.length === 0) {
           throw new Error("No NER data available");
+        }
 
         const patients = nerResults.map((p) => {
           const extractedText = (p as Record<string, unknown>)
@@ -67,13 +102,14 @@ const AIStructuredResults = () => {
             return d.toISOString().slice(0, 10);
           };
           let medical_conditions: string[] = [];
-          if (typeof e.Diagnosis === "string" && e.Diagnosis !== "N/A")
+          if (typeof e.Diagnosis === "string" && e.Diagnosis !== "N/A") {
             medical_conditions = [e.Diagnosis];
-          else if (
+          } else if (
             Array.isArray(e.MedicalConditions) &&
             e.MedicalConditions[0] !== "N/A"
-          )
+          ) {
             medical_conditions = e.MedicalConditions as string[];
+          }
           return {
             name: nullify(e.PatientName) as string | null,
             dob: nullify(e.DateOfBirth) as string | null,
@@ -96,39 +132,95 @@ const AIStructuredResults = () => {
               : null,
           };
         });
+
         console.log("Prepared patients for fuzzy match", patients);
         console.log("About to call /api/matching/fuzzy-match");
         console.log(
           "Fuzzy Match API Request Body:",
           JSON.stringify({ patients }, null, 2)
         );
+
         const res = await fetch("/api/matching/fuzzy-match", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ patients }),
           credentials: "include",
         });
+
         console.log("API call returned, status:", res.status);
         if (!res.ok) throw new Error("Fuzzy match API failed");
-        const data = await res.json();
+
+        const data = (await res.json()) as APIResponse;
         console.log("Fuzzy Match API Response:", JSON.stringify(data, null, 2));
-        const { matched_patients } = data.summary;
-        const matched = matched_patients.filter(
-          (p: { review_status: string }) => p.review_status === "Confirmed"
-        );
-        const review = matched_patients.filter(
-          (p: { review_status: string }) => p.review_status !== "Confirmed"
-        );
+
+        // Transform API response into MatchedResult format
+        const transformToMatchedResult = (
+          patient: PatientData
+        ): MatchedResult => ({
+          incoming: {
+            name: patient.name || "Unknown",
+            dob: patient.dob || "Unknown",
+            insurance_number: patient.insurance_number || "Unknown",
+            medical_conditions: patient.medical_conditions || [],
+            phone: patient.phone || "",
+            email: patient.email || "",
+            address: patient.address || "",
+            gender: patient.gender || "",
+            ssn: patient.ssn || "",
+          },
+          matched_with: {
+            id: 0, // Since this is unmatched, we use 0 as a placeholder
+            name: patient.name || "Unknown",
+            dob: patient.dob || "Unknown",
+            insurance_number: patient.insurance_number || "Unknown",
+            medical_conditions: patient.medical_conditions.join(", ") || "",
+            embedding: null, // Force null since we don't have embeddings in the API response
+            doctor_name: patient.doctor_name || "",
+            hospital_name: patient.hospital_name || "",
+            diagnosis: patient.diagnosis || "",
+            medical_record_number: patient.medical_record_number || "",
+            medications: patient.medications || [],
+            ssn: patient.ssn || "",
+          },
+          method: "manual",
+          score: 0,
+          status: "pending",
+          review_status: patient.review_status || "Pending",
+        });
+
+        const { matched_patients = [], unmatched_patients = [] } = data;
+
+        // Process matched patients
+        const matched = matched_patients
+          .filter((p: PatientData) => p.review_status === "Confirmed")
+          .map(transformToMatchedResult);
+
+        // Process unmatched patients
+        const review = [
+          ...matched_patients
+            .filter((p: PatientData) => p.review_status !== "Confirmed")
+            .map(transformToMatchedResult),
+          ...unmatched_patients.map(transformToMatchedResult),
+        ];
+
         setAIResults(matched, review);
       } catch (err) {
         console.error("Error processing AI structure, using mock data:", err);
-        const { matched_patients } = mockAIData.summary;
-        const matched = matched_patients.filter(
-          (p) => p.review_status === "Confirmed"
-        );
-        const review = matched_patients.filter(
-          (p) => p.review_status !== "Confirmed"
-        );
+        // Use mock data directly since it's already in the correct format
+        const mockData = mockAIData as unknown as {
+          matched_patients: MatchedResult[];
+          unmatched_patients: MatchedResult[];
+        };
+        const matched =
+          mockData.matched_patients.filter(
+            (p: MatchedResult) => p.review_status === "Confirmed"
+          ) || [];
+        const review = [
+          ...(mockData.matched_patients.filter(
+            (p: MatchedResult) => p.review_status !== "Confirmed"
+          ) || []),
+          ...(mockData.unmatched_patients || []),
+        ];
         setAIResults(matched, review);
         setError("Failed to process AI structure. Showing mock data.");
       } finally {
@@ -136,12 +228,21 @@ const AIStructuredResults = () => {
         console.log("AIStructuredResults: fetchAndMatch finished");
       }
     };
+
     fetchAndMatch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBack = () => {
-    navigate(-1);
+    // Preserve all states when navigating back
+    navigate("/home", {
+      state: {
+        preserveState: true,
+        ocrResults: ocrResults,
+        nerResults: nerResults,
+        currentView: "patient-list",
+      },
+    });
   };
 
   const handleReview = (patient: MatchedResult) => {
@@ -170,6 +271,12 @@ const AIStructuredResults = () => {
               patient.matched_with.insurance_number || "Unknown",
             medical_conditions: patient.matched_with.medical_conditions || "",
             embedding: patient.matched_with.embedding || null,
+            doctor_name: patient.matched_with.doctor_name || "",
+            hospital_name: patient.matched_with.hospital_name || "",
+            diagnosis: patient.matched_with.diagnosis || "",
+            medical_record_number:
+              patient.matched_with.medical_record_number || "",
+            medications: patient.matched_with.medications || [],
           },
           method: patient.method || "manual",
           score: patient.score || 0,
@@ -270,7 +377,7 @@ const AIStructuredResults = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8 relative">
           <button
             onClick={handleBack}
             className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 transition-colors shadow-sm"
@@ -278,6 +385,14 @@ const AIStructuredResults = () => {
             <FaArrowLeft />
             <span>Back to Upload</span>
           </button>
+          <div className="absolute left-1/2 transform -translate-x-1/2 text-center">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent py-1">
+              Patient Matching Summary
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Review and manage patient data matches from uploaded documents
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -287,54 +402,67 @@ const AIStructuredResults = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setActiveTab("matched")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
-                activeTab === "matched"
-                  ? "bg-indigo-600 text-white shadow-md"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <FaCheckCircle
-                className={
-                  activeTab === "matched" ? "text-white" : "text-gray-500"
-                }
-              />
-              Matched ({aiResults.matched.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("review")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
-                activeTab === "review"
-                  ? "bg-indigo-600 text-white shadow-md"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <FaExclamationCircle
-                className={
-                  activeTab === "review" ? "text-white" : "text-gray-500"
-                }
-              />
-              Review ({aiResults.review.length})
-            </button>
+        {loading ? (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-col items-center justify-center min-h-[400px]">
+            <FaSpinner className="text-4xl text-indigo-600 animate-spin mb-4" />
+            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+              Processing Patient Matches
+            </h2>
+            <p className="text-gray-600 text-center max-w-md">
+              We're analyzing your documents and finding potential patient
+              matches. This may take a few moments...
+            </p>
           </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex gap-4 mb-6">
+              <button
+                onClick={() => setActiveTab("matched")}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
+                  activeTab === "matched"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <FaCheckCircle
+                  className={
+                    activeTab === "matched" ? "text-white" : "text-gray-500"
+                  }
+                />
+                Matched ({aiResults.matched.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("review")}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
+                  activeTab === "review"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <FaExclamationCircle
+                  className={
+                    activeTab === "review" ? "text-white" : "text-gray-500"
+                  }
+                />
+                Review ({aiResults.review.length})
+              </button>
+            </div>
 
-          <div className="space-y-4">
-            {activeTab === "matched"
-              ? aiResults.matched.map((patient) => (
-                  <div key={patient.matched_with.id || patient.incoming.name}>
-                    {renderPatientCard(patient)}
-                  </div>
-                ))
-              : aiResults.review.map((patient) => (
-                  <div key={patient.matched_with.id || patient.incoming.name}>
-                    {renderPatientCard(patient)}
-                  </div>
-                ))}
+            <div className="space-y-4">
+              {activeTab === "matched"
+                ? aiResults.matched.map((patient) => (
+                    <div key={patient.matched_with.id || patient.incoming.name}>
+                      {renderPatientCard(patient)}
+                    </div>
+                  ))
+                : aiResults.review.map((patient) => (
+                    <div key={patient.matched_with.id || patient.incoming.name}>
+                      {renderPatientCard(patient)}
+                    </div>
+                  ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

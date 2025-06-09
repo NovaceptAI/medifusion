@@ -1,23 +1,40 @@
 import {
+  FaArrowLeft,
+  FaArrowRight,
   FaCalendarAlt,
   FaChevronDown,
   FaChevronUp,
-  FaEnvelope,
   FaExclamationTriangle,
   FaFileMedical,
-  FaIdBadge,
-  FaMapMarkerAlt,
   FaNotesMedical,
-  FaPhone,
-  FaPills,
+  FaPhoneAlt,
   FaRobot,
+  FaSpinner,
   FaUser,
 } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import axios from "axios";
 import { mockDocuments } from "../data/documentData";
 import { usePatientStore } from "../store/patientStore";
+
+interface AIResult {
+  matched: Array<{
+    incoming: {
+      name: string;
+      dob: string;
+      insurance_number?: string;
+    };
+  }>;
+  review: Array<{
+    incoming: {
+      name: string;
+      dob: string;
+      insurance_number?: string;
+    };
+  }>;
+}
 
 interface FollowUpCare {
   Medications: string;
@@ -42,11 +59,19 @@ interface Patient {
   followUpCare: FollowUpCare;
 }
 
+interface OCRResult {
+  filename: string;
+  extracted_text: string;
+}
+
 interface PatientListProps {
   patients: Patient[];
   onPatientClick?: (patient: Patient) => void;
   onAIStructure?: () => void;
   error?: string;
+  nerReady?: boolean;
+  currentView: "ocr-output" | "patient-list";
+  setCurrentView: (view: "ocr-output" | "patient-list") => void;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -55,12 +80,21 @@ const PatientList = ({
   patients = [],
   onAIStructure,
   error,
+  nerReady = false,
+  currentView,
+  setCurrentView,
 }: PatientListProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedPatient, setExpandedPatient] = useState<string | null>(null);
-  const { setPatients, aiResults } = usePatientStore();
+  const [callingPatientId, setCallingPatientId] = useState<string | null>(null);
+  const { setPatients, aiResults, ocrResults } =
+    usePatientStore() as unknown as {
+      setPatients: (patients: Patient[]) => void;
+      aiResults: AIResult | null;
+      ocrResults: OCRResult[];
+    };
 
   // Reset to first page when patients array changes
   useEffect(() => {
@@ -71,7 +105,7 @@ const PatientList = ({
   useEffect(() => {
     if (error) {
       const mockPatients = mockDocuments.map((doc) => ({
-        id: doc.id,
+        id: String(doc.id),
         name: doc.structured_data.ExtractedData.PatientName,
         dob: doc.structured_data.ExtractedData.DateOfBirth,
         mrn: doc.structured_data.ExtractedData.MRN,
@@ -150,7 +184,7 @@ const PatientList = ({
 
     return pages.map((page, idx) =>
       page === "..." ? (
-        <span key={idx} className="px-2 py-1 text-gray-500">
+        <span key={`ellipsis-${idx}`} className="px-2 py-1 text-gray-500">
           ...
         </span>
       ) : (
@@ -286,11 +320,222 @@ const PatientList = ({
     }
   };
 
+  const renderOCROutput = () => {
+    if (!ocrResults || ocrResults.length === 0) {
+      return (
+        <div className="text-center text-gray-500 py-8">
+          No OCR output available
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-4">
+        {ocrResults.map((result) => {
+          const isExpanded = expandedPatient === result.filename;
+          const hasCritical = result.extracted_text
+            .toLowerCase()
+            .includes("critical");
+          let sampleLines: string[] = [];
+          if (typeof result.extracted_text === "string") {
+            const lines = result.extracted_text.split("\n").filter(Boolean);
+            // Shuffle lines
+            for (let i = lines.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [lines[i], lines[j]] = [lines[j], lines[i]];
+            }
+            sampleLines = lines.slice(0, Math.min(30, lines.length));
+          } else {
+            sampleLines = [JSON.stringify(result.extracted_text, null, 2)];
+          }
+          return (
+            <div
+              key={result.filename}
+              className={`bg-gradient-to-br from-blue-50 to-white border border-blue-200 hover:border-blue-400 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300`}
+            >
+              <div
+                className="flex justify-between items-start cursor-pointer"
+                onClick={() =>
+                  setExpandedPatient(isExpanded ? null : result.filename)
+                }
+              >
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <FaFileMedical className="text-blue-600" />
+                    {result.filename}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  {hasCritical && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-bold shadow-sm">
+                      <FaExclamationTriangle className="text-red-600 text-lg" />
+                      Critical
+                    </div>
+                  )}
+                  <button
+                    className="p-2 hover:bg-blue-50 rounded-full transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedPatient(isExpanded ? null : result.filename);
+                    }}
+                    aria-label={isExpanded ? "Collapse" : "Expand"}
+                  >
+                    {isExpanded ? (
+                      <FaChevronUp className="text-blue-500 text-xl" />
+                    ) : (
+                      <FaChevronDown className="text-blue-500 text-xl" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div
+                className={`overflow-hidden transition-all duration-300 ${
+                  isExpanded
+                    ? "max-h-[2000px] opacity-100 mt-4"
+                    : "max-h-0 opacity-0"
+                }`}
+              >
+                {isExpanded && (
+                  <div
+                    className="relative"
+                    style={{
+                      minHeight: Math.max(400, sampleLines.length * 36),
+                    }}
+                  >
+                    {sampleLines.map((line, idx) => {
+                      const offset = Math.floor(Math.random() * 60); // 0-60% left
+                      const rotation = Math.random() * 6 - 3; // -3deg to 3deg
+                      return (
+                        <div
+                          key={idx}
+                          className="bg-white border border-gray-200 rounded-md px-2 py-1 text-sm text-gray-700 shadow-sm whitespace-pre-line animate-fadeInUp absolute"
+                          style={{
+                            left: `${offset}%`,
+                            top: `${idx * 36}px`,
+                            transform: `rotate(${rotation}deg)`,
+                            animationDelay: `${idx * 40}ms`,
+                            minWidth: "max-content",
+                            maxWidth: "60%",
+                          }}
+                        >
+                          {line}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderNavigationIcons = () => {
+    if (!ocrResults || ocrResults.length === 0 || !nerReady) return null;
+    return (
+      <div className="flex gap-2">
+        <button
+          onClick={() => setCurrentView("ocr-output")}
+          className={`p-2 rounded-full transition-colors ${
+            currentView === "ocr-output"
+              ? "bg-blue-100 text-blue-600"
+              : "text-gray-500 hover:bg-gray-100"
+          }`}
+          title="View OCR Output"
+        >
+          <FaArrowLeft className="text-xl" />
+        </button>
+        <button
+          onClick={() => setCurrentView("patient-list")}
+          className={`p-2 rounded-full transition-colors ${
+            currentView === "patient-list"
+              ? "bg-blue-100 text-blue-600"
+              : "text-gray-500 hover:bg-gray-100"
+          }`}
+          title="View Patient List"
+        >
+          <FaArrowRight className="text-xl" />
+        </button>
+      </div>
+    );
+  };
+
+  const hasCriticalText = (patientId: string) => {
+    if (!ocrResults) return false;
+    const patientDoc = ocrResults.find((doc) =>
+      doc.filename.includes(patientId)
+    );
+    if (!patientDoc) return false;
+    return patientDoc.extracted_text.toLowerCase().includes("critical");
+  };
+
+  const handleCall = async (patient: Patient) => {
+    try {
+      setCallingPatientId(patient.id);
+      const apiKey =
+        "org_ff9934e9e4d6743e982e900453307bdaab5913db08b28f9088f26bbf519b2780fe1c1e0be9dd0a1d0a3a69";
+      console.log("API Key available:", !!apiKey);
+
+      const headers = {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      };
+
+      const data = {
+        phone_number: "+919078024933",
+        voice: "June",
+        wait_for_greeting: false,
+        record: true,
+        answered_by_enabled: true,
+        noise_cancellation: false,
+        interruption_threshold: 100,
+        block_interruptions: false,
+        max_duration: 12,
+        model: "base",
+        language: "en",
+        background_track: "none",
+        endpoint: "https://api.bland.ai",
+        voicemail_action: "hangup",
+        task: `You are an urgent medical notification agent.
+Your job is to immediately call the provider or doctor and inform them about a critical patient case.
+Say this:
+"Hello, this is an urgent medical call regarding patient [${patient.name}]. The situation is critical — [${patient.condition}]. Please treat this as a top priority and respond immediately."
+Be clear, calm, and serious.
+If they confirm they've received the message, end the call.
+If they have questions, politely repeat the key information and suggest they contact the care team directly.
+If the call is unanswered, leave a voicemail with the same message.
+End call when -
+As soon you hear the doctor says "yes i will look into it" or something related to it. Just say "thank you" and stop the call and end it`,
+      };
+
+      console.log("Making API call with headers:", {
+        ...headers,
+        Authorization: "***",
+      });
+      const response = await axios.post("https://api.bland.ai/v1/calls", data, {
+        headers,
+      });
+
+      if (response.data.status === "success") {
+        console.log("Call initiated successfully:", response.data.call_id);
+      }
+    } catch (error) {
+      console.error("Error initiating call:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("Response data:", error.response?.data);
+        console.error("Response status:", error.response?.status);
+      }
+    } finally {
+      setCallingPatientId(null);
+    }
+  };
+
   const renderContent = () => {
     if (error) {
       // Instead of showing error, show mock data and the Structure with AI button
       const mockPatients = mockDocuments.map((doc) => ({
-        id: doc.id,
+        id: String(doc.id),
         name: doc.structured_data.ExtractedData.PatientName,
         dob: doc.structured_data.ExtractedData.DateOfBirth,
         mrn: doc.structured_data.ExtractedData.MRN,
@@ -323,11 +568,11 @@ const PatientList = ({
                 <FaRobot className="text-2xl text-blue-500" />
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800">
-                    AI Document Structuring
+                    AI Document Matching
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Process all documents with AI to extract structured
-                    information
+                    Process all documents with AI to automatically match and
+                    link related records
                   </p>
                 </div>
               </div>
@@ -336,7 +581,7 @@ const PatientList = ({
                 onClick={handleAIStructure}
               >
                 <FaRobot className="text-xl" />
-                <span>Structure with AI</span>
+                <span>Match with AI</span>
               </button>
             </div>
           </div>
@@ -408,7 +653,8 @@ const PatientList = ({
       );
     }
 
-    if (!patients || patients.length === 0) {
+    // Show "No Patient Data" initially
+    if (!ocrResults || ocrResults.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
           <FaFileMedical className="text-gray-400 text-4xl mb-4" />
@@ -424,126 +670,155 @@ const PatientList = ({
 
     return (
       <>
-        <div className="flex-1 overflow-y-auto pr-2">
-          <div className="space-y-4">
-            {patients.length > 0 && (
-              <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-200 hover:border-blue-400 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <FaRobot className="text-2xl text-blue-500" />
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800">
-                        AI Document Structuring
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        Process all documents with AI to extract structured
-                        information
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300 animate-pulse hover:animate-none"
-                    onClick={handleAIStructure}
-                  >
-                    <FaRobot className="text-xl" />
-                    <span>Structure with AI</span>
-                  </button>
-                </div>
-              </div>
-            )}
-            {currentItems.map((patient) => (
-              <div
-                key={patient.id}
-                className={`bg-gradient-to-br from-blue-50 to-white border border-blue-200 hover:border-blue-400 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300 ${
-                  expandedPatient === patient.id ? "min-h-[200px]" : ""
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                      <FaUser className="text-blue-600" />
-                      {patient.name}
-                    </h3>
-                    <div className="text-gray-800 text-sm mt-3 space-y-2">
-                      <p className="flex items-center gap-2">
-                        <FaFileMedical className="text-blue-600" />
-                        <span className="font-semibold">MRN:</span>{" "}
-                        <span className="text-gray-900">{patient.mrn}</span>
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <FaCalendarAlt className="text-blue-600" />
-                        <span className="font-semibold">DOB:</span>{" "}
-                        <span className="text-gray-900">{patient.dob}</span>
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <FaNotesMedical className="text-blue-600" />
-                        <span className="font-semibold">
-                          Document Type:
-                        </span>{" "}
-                        <span className="text-gray-900">
-                          {patient.documentType}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setExpandedPatient(
-                        expandedPatient === patient.id ? null : patient.id
-                      );
-                    }}
-                    className="ml-4 p-2 hover:bg-blue-50 rounded-full transition-colors"
-                  >
-                    {expandedPatient === patient.id ? (
-                      <FaChevronUp className="text-blue-500 text-xl" />
-                    ) : (
-                      <FaChevronDown className="text-blue-500 text-xl" />
-                    )}
-                  </button>
-                </div>
-                <div
-                  className={`overflow-hidden transition-all duration-300 ${
-                    expandedPatient === patient.id
-                      ? "max-h-[2000px] opacity-100"
-                      : "max-h-0 opacity-0"
-                  }`}
-                >
-                  {expandedPatient === patient.id &&
-                    renderStructuredData(patient)}
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-semibold text-blue-700 flex items-center gap-2">
+            {currentView === "ocr-output" ? "📝 OCR Output" : "👥 Patient List"}
+          </h2>
+          {renderNavigationIcons()}
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex justify-center mt-6 gap-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            {renderPageButtons()}
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
-            >
-              Next
-            </button>
+        {currentView === "ocr-output" ? (
+          <div className="flex-1 overflow-y-auto pr-2">{renderOCROutput()}</div>
+        ) : (
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="space-y-4">
+              {patients.length > 0 && (
+                <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-200 hover:border-blue-400 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <FaRobot className="text-2xl text-blue-500" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">
+                          AI Document Matching
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Process all documents with AI to automatically match
+                          and link related records
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300 animate-pulse hover:animate-none"
+                      onClick={handleAIStructure}
+                    >
+                      <FaRobot className="text-xl" />
+                      <span>Match with AI</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              {currentItems.map((patient) => (
+                <div
+                  key={patient.id}
+                  className={`bg-gradient-to-br from-blue-50 to-white border border-blue-200 hover:border-blue-400 rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300 ${
+                    expandedPatient === patient.id ? "min-h-[200px]" : ""
+                  } relative`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <FaUser className="text-blue-600" />
+                        {patient.name}
+                      </h3>
+                      <div className="text-gray-800 text-sm mt-3 space-y-2">
+                        <p className="flex items-center gap-2">
+                          <FaFileMedical className="text-blue-600" />
+                          <span className="font-semibold">MRN:</span>{" "}
+                          <span className="text-gray-900">{patient.mrn}</span>
+                        </p>
+                        <p className="flex items-center gap-2">
+                          <FaCalendarAlt className="text-blue-600" />
+                          <span className="font-semibold">DOB:</span>{" "}
+                          <span className="text-gray-900">{patient.dob}</span>
+                        </p>
+                        <p className="flex items-center gap-2">
+                          <FaNotesMedical className="text-blue-600" />
+                          <span className="font-semibold">
+                            Document Type:
+                          </span>{" "}
+                          <span className="text-gray-900">
+                            {patient.documentType}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {hasCriticalText(patient.id) && (
+                        <button
+                          onClick={() => handleCall(patient)}
+                          disabled={callingPatientId === patient.id}
+                          className={`p-2 rounded-full transition-colors ${
+                            callingPatientId === patient.id
+                              ? "bg-green-100 opacity-75 cursor-not-allowed"
+                              : "bg-green-100 hover:bg-green-200 call-button"
+                          }`}
+                          title="Call Doctor"
+                        >
+                          {callingPatientId === patient.id ? (
+                            <FaSpinner className="text-green-600 text-lg animate-spin" />
+                          ) : (
+                            <FaPhoneAlt className="text-green-600 text-lg" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setExpandedPatient(
+                            expandedPatient === patient.id ? null : patient.id
+                          );
+                        }}
+                        className="p-2 hover:bg-blue-50 rounded-full transition-colors"
+                      >
+                        {expandedPatient === patient.id ? (
+                          <FaChevronUp className="text-blue-500 text-xl" />
+                        ) : (
+                          <FaChevronDown className="text-blue-500 text-xl" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  {hasCriticalText(patient.id) && (
+                    <div className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-bold shadow-sm">
+                      <FaExclamationTriangle className="text-red-600 text-lg" />
+                      Critical
+                    </div>
+                  )}
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ${
+                      expandedPatient === patient.id
+                        ? "max-h-[2000px] opacity-100"
+                        : "max-h-0 opacity-0"
+                    }`}
+                  >
+                    {expandedPatient === patient.id &&
+                      renderStructuredData(patient)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </>
     );
   };
 
+  // Add this CSS to your component's JSX
+  const callButtonStyles = `
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .call-button {
+      animation: pulse 2s infinite;
+    }
+    .call-button:hover {
+      animation: none;
+    }
+  `;
+
   return (
     <div className="bg-white border-2 border-gray-200 shadow-2xl rounded-2xl p-6 h-full flex flex-col">
-      <h2 className="text-2xl font-semibold text-blue-700 mb-4 flex items-center gap-2">
-        👥 Patient List
-      </h2>
+      <style>{callButtonStyles}</style>
       {renderContent()}
     </div>
   );

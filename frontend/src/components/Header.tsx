@@ -1,10 +1,9 @@
-import { Link, useLocation } from "react-router-dom";
 import { Menu, Stethoscope } from "lucide-react";
 
+import { Link } from "react-router-dom";
 import { useSidebar } from "../contexts/SidebarContext";
 
 const Header = () => {
-  const location = useLocation();
   const { toggleSidebar } = useSidebar();
 
   return (
@@ -20,12 +19,14 @@ const Header = () => {
           <div className="bg-white/10 p-2 rounded-lg">
             <Stethoscope className="w-6 h-6 text-white" />
           </div>
-          <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-100 to-pink-100">
-            Medifusion
-          </span>
+          <Link to="/" className="hover:opacity-90 transition-opacity">
+            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-100 to-pink-100">
+              MediFusion
+            </span>
+          </Link>
         </div>
       </div>
-      <nav className="space-x-8 hidden md:block">
+      {/* <nav className="space-x-8 hidden md:block">
         <Link
           to="/"
           className={`text-lg transition-all duration-200 hover:text-indigo-100 ${
@@ -46,7 +47,7 @@ const Header = () => {
         >
           Statistics
         </Link>
-      </nav>
+      </nav> */}
     </header>
   );
 };

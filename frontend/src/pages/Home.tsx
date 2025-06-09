@@ -5,6 +5,7 @@ import CheckpointLoaderExample from "../components/CheckLoadingExample";
 import PatientList from "../components/PatientList";
 import UploadSection from "../components/UploadSection";
 import { motion } from "framer-motion";
+import { useLocation } from "react-router-dom";
 import { usePatientStore } from "../store/patientStore";
 
 interface FollowUpCare {
@@ -78,6 +79,7 @@ interface CheckpointState {
 }
 
 const Home = () => {
+  const location = useLocation();
   const [files, setFiles] = useState<File[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -86,14 +88,57 @@ const Home = () => {
     ocr: "pending",
     ner: "pending",
   });
-  const { setPatients: setStorePatients, setNERResults } = usePatientStore();
+  const [nerReady, setNerReady] = useState(false);
+  const [currentView, setCurrentView] = useState<"ocr-output" | "patient-list">(
+    "ocr-output"
+  );
+  const {
+    setPatients: setStorePatients,
+    setNERResults,
+    patients: storePatients,
+    setFiles: setStoreFiles,
+    files: storeFiles,
+    setOCRResults,
+    ocrResults,
+    nerResults,
+  } = usePatientStore() as unknown as {
+    setPatients: (patients: Patient[]) => void;
+    setNERResults: (results: object[]) => void;
+    patients: Patient[];
+    setFiles: (files: File[]) => void;
+    files: File[];
+    setOCRResults: (
+      results: { filename: string; extracted_text: string }[]
+    ) => void;
+    ocrResults: { filename: string; extracted_text: string }[];
+    nerResults: object[];
+  };
 
-  // Initialize patients from store if available
+  // Initialize patients, files and state from store if available
+  useEffect(() => {
+    if (storePatients && storePatients.length > 0) {
+      setPatients(storePatients);
+      // Restore checkpoint state based on store data
+      setCheckpointState({
+        uploaded: "completed",
+        ocr: "completed",
+        ner: "completed",
+      });
+    }
+    if (storeFiles && storeFiles.length > 0) {
+      setFiles(storeFiles);
+    }
+  }, [storePatients, storeFiles]);
+
+  // Save patients and files to store when they change
   useEffect(() => {
     if (patients.length > 0) {
       setStorePatients(patients);
     }
-  }, [patients, setStorePatients]);
+    if (files.length > 0) {
+      setStoreFiles(files);
+    }
+  }, [patients, files, setStorePatients, setStoreFiles]);
 
   // Handle page reload
   useEffect(() => {
@@ -112,6 +157,39 @@ const Home = () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
+  // Handle preserved state when navigating back
+  useEffect(() => {
+    if (location.state?.preserveState) {
+      // Only restore states if we have files
+      if (files.length > 0) {
+        // Restore NER results
+        if (location.state.nerResults) {
+          setNERResults(location.state.nerResults);
+        }
+        // Restore OCR results
+        if (location.state.ocrResults) {
+          setOCRResults(location.state.ocrResults);
+        }
+        // Set the view to OCR output
+        setCurrentView(location.state.currentView || "ocr-output");
+        // Set NER ready state
+        setNerReady(true);
+      } else {
+        // Reset states if no files
+        setCurrentView("ocr-output");
+        setNerReady(false);
+        setNERResults([]);
+        setOCRResults([]);
+      }
+    }
+  }, [
+    location.state,
+    setNERResults,
+    setOCRResults,
+    setCurrentView,
+    files.length,
+  ]);
+
   const handleFileSelect = () => {
     setCheckpointState((prev) => ({
       ...prev,
@@ -128,12 +206,12 @@ const Home = () => {
 
   const handleSimulateUpload = async () => {
     setError(undefined);
-
     setCheckpointState((prev) => ({
       ...prev,
       ocr: "loading",
     }));
-
+    setNerReady(false);
+    setCurrentView("ocr-output");
     try {
       // Check file sizes before uploading
       const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
@@ -191,10 +269,17 @@ const Home = () => {
         throw new Error("Invalid response format from upload API");
       }
 
-      // Mark OCR as completed and start NER
+      // Immediately display OCR output
+      setOCRResults(uploadData.results);
+      setCurrentView("ocr-output");
       setCheckpointState((prev) => ({
         ...prev,
         ocr: "completed",
+      }));
+
+      // Start NER processing in the background
+      setCheckpointState((prev) => ({
+        ...prev,
         ner: "loading",
       }));
 
@@ -325,7 +410,17 @@ const Home = () => {
       );
       setPatients(transformedPatients);
       setStorePatients(transformedPatients);
+      setStoreFiles(files);
       setNERResults(processedResults);
+      setNerReady(true);
+      setCurrentView("patient-list");
+
+      // Update checkpoint state
+      setCheckpointState({
+        uploaded: "completed",
+        ocr: "completed",
+        ner: "completed",
+      });
     } catch (error: unknown) {
       console.error("Upload failed:", error);
       if (error instanceof Error) {
@@ -339,6 +434,7 @@ const Home = () => {
         ocr: "pending",
         ner: "pending",
       });
+      setNerReady(false);
     }
   };
 
@@ -361,7 +457,7 @@ const Home = () => {
         </motion.div>
 
         {/* Stats Cards */}
-        <motion.div
+        {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -410,7 +506,7 @@ const Home = () => {
               </div>
             </div>
           </div>
-        </motion.div>
+        </motion.div> */}
 
         <CheckpointLoaderExample checkpointState={checkpointState} />
 
@@ -441,7 +537,13 @@ const Home = () => {
             className="bg-white rounded-xl shadow-lg p-6 border border-indigo-100 overflow-hidden"
           >
             <div className="h-[65vh] overflow-y-auto">
-              <PatientList patients={patients} error={error} />
+              <PatientList
+                patients={patients}
+                error={error}
+                nerReady={nerReady}
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+              />
             </div>
           </motion.div>
         </div>

@@ -86,7 +86,22 @@ const CheckpointLoader: React.FC<CheckpointLoaderProps> = ({
     const loadingCount = statuses.filter(
       (status) => status === "loading"
     ).length;
-    return ((completedCount + loadingCount * 0.5) / checkpoints.length) * 100;
+
+    // If all checkpoints are completed, show 100%
+    if (completedCount === checkpoints.length) {
+      return 100;
+    }
+
+    // Calculate base progress
+    const baseProgress =
+      ((completedCount + loadingCount * 0.5) / checkpoints.length) * 100;
+
+    // If there's a completed checkpoint and the next one is pending, reduce the progress
+    if (completedCount > 0 && loadingCount === 0) {
+      return baseProgress * 0.3; // Reduce to 30% of the calculated progress
+    }
+
+    return baseProgress;
   };
 
   const getCheckpointIcon = (status: CheckpointStatus) => {
@@ -116,15 +131,15 @@ const CheckpointLoader: React.FC<CheckpointLoaderProps> = ({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6">
+    <div className="w-full mx-auto p-6">
       <div className="relative">
         {/* Progress Line Background */}
-        <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
+        <div className="absolute top-1/2 left-[2.5rem] right-[2.5rem] h-1 bg-gray-200 rounded-full transform -translate-y-1/2"></div>
 
         {/* Animated Progress Line with Gradient */}
         <div
-          className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 transition-all duration-1000 ease-out rounded-full shadow-lg transform -translate-y-1/2"
-          style={{ width: `${getProgressWidth()}%` }}
+          className="absolute top-1/2 left-[2.5rem] h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 transition-all duration-1000 ease-out rounded-full shadow-lg transform -translate-y-1/2"
+          style={{ width: `calc(${getProgressWidth()}% - 5rem)` }}
         ></div>
 
         {/* Checkpoints */}
