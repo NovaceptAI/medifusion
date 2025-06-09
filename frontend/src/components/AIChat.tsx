@@ -32,6 +32,26 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
     }>;
   };
 
+  // Load chat history when patientId changes or chat is opened
+  useEffect(() => {
+    if (patientId && isOpen) {
+      const savedMessages = localStorage.getItem(`chat_${patientId}`);
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages));
+      } else {
+        // Initialize with empty messages for new chat
+        setMessages([]);
+      }
+    }
+  }, [patientId, isOpen]);
+
+  // Save chat history whenever messages change
+  useEffect(() => {
+    if (patientId && messages.length > 0) {
+      localStorage.setItem(`chat_${patientId}`, JSON.stringify(messages));
+    }
+  }, [messages, patientId]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -103,6 +123,12 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
     }
   };
 
+  // Reset messages when chat is closed
+  const handleClose = () => {
+    setMessages([]);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -112,7 +138,7 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
           AI Clinical Support
         </h3>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="text-gray-500 hover:text-gray-700 transition-colors"
         >
           ×
@@ -120,24 +146,32 @@ const AIChat: React.FC<AIChatProps> = ({ patientId, isOpen, onClose }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`flex ${
-              message.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500 text-center">
+              Start a conversation with the AI assistant
+            </p>
+          </div>
+        ) : (
+          messages.map((message, index) => (
             <div
-              className={`max-w-[80%] rounded-lg p-3 ${
-                message.role === "user"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-800"
+              key={index}
+              className={`flex ${
+                message.role === "user" ? "justify-end" : "justify-start"
               }`}
             >
-              {message.content}
+              <div
+                className={`max-w-[80%] rounded-lg p-3 ${
+                  message.role === "user"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {message.content}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-gray-100 rounded-lg p-3 text-gray-800">
