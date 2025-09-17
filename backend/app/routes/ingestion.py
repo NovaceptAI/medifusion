@@ -23,7 +23,7 @@ if not S3_BUCKET:
 
 # AWS Config
 AWS_REGION = "us-east-1"
-S3_BUCKET = "medifusion"
+S3_BUCKET = "medi-fusion"
 TEMP_UPLOAD_PREFIX = "uploads"
 
 # Initialize router
